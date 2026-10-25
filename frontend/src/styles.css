@@ -71,3 +71,20 @@ article h1 { font-size: 24px; margin-bottom: 4px; }
 .plain li { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .muted { color: var(--muted); }
 .error { color: var(--danger); }
+
+/* —— 列表增强：骨架屏 / 分页 / 错误重试 —— */
+.skeleton-card { display: flex; gap: 16px; padding: 16px; background: #fff; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px; }
+.skeleton { background: linear-gradient(90deg, #ececec 25%, #f5f5f5 37%, #ececec 63%); background-size: 400% 100%; border-radius: 4px; animation: shimmer 1.4s infinite linear; }
+@keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+.skeleton-stats { width: 90px; height: 70px; }
+.skeleton-main { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.skeleton-title { height: 18px; width: 55%; }
+.skeleton-line { height: 14px; width: 100%; }
+.skeleton-line.short { width: 40%; }
+
+.pager { display: flex; align-items: center; gap: 10px; justify-content: center; margin: 18px 0 6px; }
+.pager span { color: var(--muted); font-size: 13px; }
+.pager button:disabled { opacity: .45; cursor: not-allowed; }
+
+.error-box { display: flex; align-items: center; gap: 12px; background: #ffebe9; border: 1px solid var(--danger); border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
+.error-box p { margin: 0; }
