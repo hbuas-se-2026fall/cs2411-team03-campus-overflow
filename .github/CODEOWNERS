@@ -1,0 +1,9 @@
+# 按上下文指派第一评审人（示例：请替换为团队真实 GitHub 用户名）
+# 共享内核变更需两人评审
+/backend/co-qa/            @zhaojeak @member-a
+/backend/co-reputation/    @zhaojeak @member-c
+/backend/co-discovery/     @member-c @member-d
+/backend/co-identity/      @member-a
+/backend/co-shared-kernel/ @member-e @member-a
+/frontend/                 @member-d
+/.github/  /deploy/        @member-e @zhaojeak
