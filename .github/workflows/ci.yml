@@ -39,8 +39,9 @@ jobs:
         run: mvn -B -f backend/pom.xml test -pl "$SPRINT_MODULES" -am
 
       # 阶段 3：架构适应度函数（ArchUnit：FF-1~FF-6，始终全量）
+      # -am 构建兄弟模块依赖；failIfNoSpecifiedTests=false 允许依赖模块无 ArchitectureTest
       - name: 架构约束检查
-        run: mvn -B -f backend/pom.xml test -pl co-bootstrap -Dtest=ArchitectureTest -DfailIfNoTests=false
+        run: mvn -B -f backend/pom.xml test -pl co-bootstrap -am -Dtest=ArchitectureTest -DfailIfNoTests=false -Dsurefire.failIfNoSpecifiedTests=false
 
       # 阶段 4：领域层覆盖率门禁（Sprint 范围，低于阈值直接失败）
       - name: 覆盖率门禁（Sprint 范围）
