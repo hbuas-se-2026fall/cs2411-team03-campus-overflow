@@ -9,6 +9,31 @@ export class ApiError extends Error {
   }
 }
 
+/** 把后端错误（RFC 9457 + 业务 code）映射成用户可读的中文提示。 */
+const ERROR_MESSAGES: Record<string, string> = {
+  'AUTH-401': '请先登录后再操作',
+  'AUTH-403-CSRF': '会话已过期，请刷新页面后重试',
+  'AUTH-429': '操作过于频繁，请稍后再试',
+  'QA-1001': '标题长度不合法（1–150 字符）',
+  'QA-1002': '正文长度不合法（最多 30000 字符）',
+  'QA-1005': '标签数量须为 1–5 个',
+  'QA-1015': '不能给自己的内容投票',
+  'QA-2002': '该问题已采纳，不能重复操作',
+  'QA-3001': '只有提问者或课程教师/助教可以执行此操作',
+  'QA-403': '没有权限编辑/删除该内容',
+  'QA-404': '内容不存在或已被删除',
+  'SYS-409-CONCURRENT': '内容已被他人修改，请刷新后重试',
+  'SYS-409-DUPLICATE': '检测到重复提交，请勿重复操作',
+  'SYS-000': '服务暂时不可用，请稍后再试',
+};
+
+export function describeError(e: unknown): string {
+  if (e instanceof ApiError) {
+    return ERROR_MESSAGES[e.code] ?? (e.message || `操作失败（${e.code}）`);
+  }
+  return e instanceof Error ? e.message : '操作失败，请稍后再试';
+}
+
 function cookie(name: string): string | undefined {
   return document.cookie.split('; ').find((c) => c.startsWith(`${name}=`))?.split('=')[1];
 }
@@ -53,6 +78,10 @@ export const api = {
   ask: (body: { courseId?: number; title: string; body: string; tags: string[] }) =>
     request<{ id: number }>('POST', '/v1/questions', body),
   deleteQuestion: (id: number) => request<void>('DELETE', `/v1/questions/${id}`),
+  editQuestion: (id: number, body: { title: string; body: string; tags: string[] }) =>
+    request<void>('PUT', `/v1/questions/${id}`, body),
+  editAnswer: (id: number, body: string) => request<void>('PUT', `/v1/answers/${id}`, { body }),
+  deleteAnswer: (id: number) => request<void>('DELETE', `/v1/answers/${id}`),
   answer: (questionId: number, body: string) =>
     request<{ id: number }>('POST', `/v1/questions/${questionId}/answers`, { body }),
   accept: (questionId: number, answerId: number) =>

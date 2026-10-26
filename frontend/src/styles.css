@@ -71,3 +71,10 @@ article h1 { font-size: 24px; margin-bottom: 4px; }
 .plain li { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .muted { color: var(--muted); }
 .error { color: var(--danger); }
+
+.edit-form { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+.edit-form input, .edit-form textarea { width: 100%; }
+.comment.reply { margin-left: 24px; border-left: 2px solid var(--line); padding-left: 10px; border-bottom: none; }
+.comment-form.reply { margin-left: 24px; }
+button.danger { color: var(--danger); border-color: var(--danger); }
+button.danger:hover { background: #fff0f0; }
