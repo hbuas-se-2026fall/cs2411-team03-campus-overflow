@@ -54,24 +54,53 @@ public class QuestionCommandService {
 
     @Transactional
     public long post(Actor actor, PostQuestionCommand cmd) {
-        // TODO(S2)：实现 QuestionCommandService.post——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：QuestionCommandService.post 尚未实现");
+        if (cmd.courseId() != null) {
+            identity.findCourse(cmd.courseId()).orElseThrow(() -> new NotFoundException("ID-4002", "课程不存在"));
+        }
+        Question question = Question.post(actor.userId(), cmd.courseId(), new Title(cmd.title()),
+                MarkdownBody.ofQuestion(cmd.body()), Tags.of(cmd.tags()), clock.instant());
+        Question saved = questions.save(question);
+        tags.adjustUsage(saved.tags().names(), 1);
+        events.publish(new QuestionPostedEvent(EventIds.next(), clock.instant(), saved.id(), saved.authorId(),
+                saved.courseId(), saved.title().value(), renderer.toPlainText(saved.body().value(),
+                PLAIN_TEXT_FOR_INDEX), saved.tags().names()));
+        listCache.invalidateAll();
+        audit.record("QUESTION_POSTED", actor.userId(), "QUESTION", String.valueOf(saved.id()),
+                saved.title().value());
+        return saved.id();
     }
 
     @Transactional
     public void edit(Actor actor, long questionId, EditQuestionCommand cmd) {
-        // TODO(S2)：实现 QuestionCommandService.edit——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：QuestionCommandService.edit 尚未实现");
+        Question question = load(questionId);
+        List<String> oldTags = question.tags().names();
+        question.edit(actor, identity.canManageCourse(actor.userId(), question.courseId()), new Title(cmd.title()),
+                MarkdownBody.ofQuestion(cmd.body()), Tags.of(cmd.tags()), clock.instant());
+        questions.save(question);
+        tags.adjustUsage(oldTags, -1);
+        tags.adjustUsage(question.tags().names(), 1);
+        events.publish(new QuestionEditedEvent(EventIds.next(), clock.instant(), question.id(),
+                question.title().value(), renderer.toPlainText(question.body().value(), PLAIN_TEXT_FOR_INDEX),
+                question.tags().names()));
+        listCache.invalidateAll();
+        audit.record("QUESTION_EDITED", actor.userId(), "QUESTION", String.valueOf(question.id()),
+                question.title().value());
     }
 
     @Transactional
     public void delete(Actor actor, long questionId) {
-        // TODO(S2)：实现 QuestionCommandService.delete——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：QuestionCommandService.delete 尚未实现");
+        Question question = load(questionId);
+        question.softDelete(actor, identity.canManageCourse(actor.userId(), question.courseId()), clock.instant());
+        questions.save(question);
+        tags.adjustUsage(question.tags().names(), -1);
+        events.publish(new ContentDeletedEvent(EventIds.next(), clock.instant(), "QUESTION", question.id(),
+                question.id()));
+        listCache.invalidateAll();
+        audit.record("QUESTION_DELETED", actor.userId(), "QUESTION", String.valueOf(question.id()),
+                question.title().value());
     }
 
     private Question load(long questionId) {
-        // TODO(S2)：实现 QuestionCommandService.load——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：QuestionCommandService.load 尚未实现");
+        return questions.findById(questionId).orElseThrow(() -> new NotFoundException("QA-4001", "问题不存在"));
     }
 }
