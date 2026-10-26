@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sprint 1 · PB-06~PB-13 任务认领与工时分布</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; margin: 0; padding: 24px; background: #f7f8fa; color: #1f2329; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #646a73; font-size: 13px; margin-bottom: 16px; }
+  #chart { width: 100%; height: 480px; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .panel { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); padding: 16px; margin-top: 16px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #e5e6eb; padding: 6px 8px; text-align: left; }
+  th { background: #f2f3f5; }
+  .sum { margin-top: 12px; font-size: 13px; color: #646a73; }
+  .fallback { font-size: 13px; color: #86909c; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Sprint 1 · PB-06~PB-13 任务认领与工时分布</h1>
+<div class="sub">数据口径：Can0401 交付物 ③ 任务拆分表（15 项，合计 58 理想小时 / 32 故事点）；PBI 故事点与实验指导书 V2 一致。横轴为工时（h），按负责人堆叠。</div>
+<div id="chart"></div>
+<noscript><div class="fallback">浏览器未启用 JavaScript，请查看下方静态表格。</div></noscript>
+
+<div class="panel">
+<h2>任务清单（QA-T01 ~ QA-T15）</h2>
+<table>
+<thead><tr><th>任务</th><th>内容要点</th><th>PBI</th><th>模块层</th><th>工时</th><th>负责人</th></tr></thead>
+<tbody>
+<tr><td>QA-T01</td><td>MarkdownBody.ofQuestion / Tags.names / Title 边界</td><td>PB-06</td><td>qa-domain</td><td>2h</td><td>Can0401</td></tr>
+<tr><td>QA-T02</td><td>Question.post 工厂（含权限/开放助手）</td><td>PB-06</td><td>qa-domain</td><td>2h</td><td>Can0401</td></tr>
+<tr><td>QA-T03</td><td>QuestionCommandService.post（课程校验/事件/缓存失效）</td><td>PB-06</td><td>qa-application</td><td>6h</td><td>Can0401</td></tr>
+<tr><td>QA-T04</td><td>Question.edit + Answer.edit（权限校验）</td><td>PB-12</td><td>qa-domain</td><td>3h</td><td>Can0401</td></tr>
+<tr><td>QA-T05</td><td>edit 服务层（标签差集/事件/缓存）</td><td>PB-12</td><td>qa-application</td><td>4h</td><td>Can0401</td></tr>
+<tr><td>QA-T06</td><td>Question.softDelete + Answer.softDelete（采纳保护）</td><td>PB-13</td><td>qa-domain</td><td>3h</td><td>Can0401</td></tr>
+<tr><td>QA-T07</td><td>delete 服务层（计数-1/事件/审计/缓存）</td><td>PB-13</td><td>qa-application</td><td>4h</td><td>Can0401</td></tr>
+<tr><td>QA-T08</td><td>Question.accept（采纳规则 5 校验）</td><td>PB-10</td><td>qa-domain</td><td>3h</td><td>Can0401</td></tr>
+<tr><td>QA-T09</td><td>AnswerCommandService.accept（事件/审计/缓存）</td><td>PB-10</td><td>qa-application</td><td>4h</td><td>Can0401</td></tr>
+<tr><td>QA-T10</td><td>Answer.submit + AnswerCommandService.submit（计数+1/事件）</td><td>PB-09</td><td>qa-domain+app</td><td>4h</td><td>Sherpherd</td></tr>
+<tr><td>QA-T11</td><td>Vote.cast/change/checkValue（±1、不能投自己）</td><td>PB-11</td><td>qa-domain</td><td>2h</td><td>Arthur20060209</td></tr>
+<tr><td>QA-T12</td><td>VoteService.cast/resolve（幂等/得分联动/事件）</td><td>PB-11</td><td>qa-application</td><td>5h</td><td>Arthur20060209</td></tr>
+<tr><td>QA-T13</td><td>QuestionQueryService.list（缓存/分页/批量作者）</td><td>PB-07</td><td>qa-application</td><td>5h</td><td>zhaojeak</td></tr>
+<tr><td>QA-T14</td><td>QuestionQueryService.detail（浏览量/我的投票/权限/排序）</td><td>PB-08</td><td>qa-application</td><td>7h</td><td>zhaojeak</td></tr>
+<tr><td>QA-T15</td><td>补充领域边界测试（标题/正文/标签/采纳/删除边界）</td><td>PB-06~13</td><td>qa-domain test</td><td>4h</td><td>全员（Can 牵头）</td></tr>
+</tbody>
+</table>
+<div class="sum">负责人工时合计：Can0401 31h（16 点）、zhaojeak 12h（8 点）、Arthur20060209 7h（5 点）、Sherpherd 4h（3 点）、全员边界测试 4h。容量参考：4 人 × 每周 8–10h × 2 周 = 64–80h，80% 承诺 51–64h，本表 58h 在区间内。</div>
+</div>
+
+<script>
+(function () {
+  if (typeof echarts === 'undefined') { return; }
+  var chart = echarts.init(document.getElementById('chart'));
+  var option = {
+    tooltip: { trigger: 'axis', triggerOn: 'click', renderMode: 'richText', confine: true, axisPointer: { type: 'shadow' } },
+    legend: { data: ['Can0401', 'zhaojeak', 'Sherpherd', 'Arthur20060209', '全员(边界测试)'], bottom: 0 },
+    grid: { left: 90, right: 40, top: 20, bottom: 50, containLabel: true },
+    xAxis: { type: 'value', name: '理想工时 (h)', nameLocation: 'middle', nameGap: 30 },
+    yAxis: { type: 'category', data: ['边界测试', 'PB-13 软删除', 'PB-12 编辑', 'PB-11 投票', 'PB-10 采纳', 'PB-09 回答', 'PB-08 详情', 'PB-07 列表', 'PB-06 发布问题'] },
+    series: [
+      { name: 'Can0401', type: 'bar', stack: 'total', data: [0, 7, 7, 0, 7, 0, 0, 0, 10] },
+      { name: 'zhaojeak', type: 'bar', stack: 'total', data: [0, 0, 0, 0, 0, 0, 7, 5, 0] },
+      { name: 'Sherpherd', type: 'bar', stack: 'total', data: [0, 0, 0, 0, 0, 4, 0, 0, 0] },
+      { name: 'Arthur20060209', type: 'bar', stack: 'total', data: [0, 0, 0, 7, 0, 0, 0, 0, 0] },
+      { name: '全员(边界测试)', type: 'bar', stack: 'total', data: [4, 0, 0, 0, 0, 0, 0, 0, 0] }
+    ]
+  };
+  chart.setOption(option);
+  window.addEventListener('resize', function () { chart.resize(); });
+})();
+</script>
+</body>
+</html>
