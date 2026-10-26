@@ -1,0 +1,9 @@
+# 按上下文指派第一评审人（团队：PO/QA=zhaojeak，SM=Sherpherd，Dev=Can0401、Arthur20060209）
+# 共享内核变更需两人评审
+/backend/co-qa/            @Can0401 @zhaojeak
+/backend/co-reputation/    @zhaojeak @Arthur20060209
+/backend/co-discovery/     @Arthur20060209 @Can0401
+/backend/co-identity/      @zhaojeak @Can0401
+/backend/co-shared-kernel/ @Sherpherd @zhaojeak
+/frontend/                 @Arthur20060209
+/.github/  /deploy/        @zhaojeak @Sherpherd

@@ -48,12 +48,54 @@ public class VoteService {
 
     @Transactional
     public VoteResult cast(Actor actor, TargetType type, long targetId, int value) {
-        // TODO(S2)：实现 VoteService.cast——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：VoteService.cast 尚未实现");
+        Target target = resolve(type, targetId);
+        if (actor.is(target.authorId())) {
+            throw new BusinessRuleException("QA-1015", "不能给自己内容投票");
+        }
+        Optional<Vote> existing = votes.find(actor.userId(), type, targetId);
+        if (existing.isPresent() && existing.get().value() == value) {
+            return new VoteResult(value, 0); // 幂等：重复提交同一命令，不产生事件
+        }
+        int oldValue = 0;
+        int newValue = value;
+        if (value == 0) {
+            if (existing.isEmpty()) {
+                return new VoteResult(0, 0); // 撤销不存在的投票，无副作用
+            }
+            oldValue = existing.get().value();
+            votes.delete(existing.get());
+        } else if (existing.isPresent()) {
+            Vote vote = existing.get();
+            oldValue = vote.change(value, clock.instant());
+            votes.save(vote);
+        } else {
+            votes.save(Vote.cast(actor.userId(), target.authorId(), type, targetId, value, clock.instant()));
+        }
+        int delta = newValue - oldValue;
+        if (type == TargetType.QUESTION) {
+            questions.adjustScore(targetId, delta);
+        } else {
+            answers.adjustScore(targetId, delta);
+        }
+        events.publish(new VoteCastEvent(EventIds.next(), clock.instant(), type.name(), targetId, target.authorId(),
+                actor.userId(), target.questionId(), oldValue, newValue));
+        return new VoteResult(newValue, delta);
     }
 
     private Target resolve(TargetType type, long targetId) {
-        // TODO(S2)：实现 VoteService.resolve——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：VoteService.resolve 尚未实现");
+        if (type == TargetType.QUESTION) {
+            Question question = questions.findById(targetId)
+                    .orElseThrow(() -> new NotFoundException("QA-4001", "问题不存在"));
+            if (question.isDeleted()) {
+                throw new NotFoundException("QA-4001", "问题不存在");
+            }
+            return new Target(question.authorId(), question.id());
+        }
+        Answer answer = answers.findById(targetId)
+                .orElseThrow(() -> new NotFoundException("QA-4002", "回答不存在"));
+        if (answer.isDeleted()) {
+            throw new NotFoundException("QA-4002", "回答不存在");
+        }
+        return new Target(answer.authorId(), answer.questionId());
     }
 }
