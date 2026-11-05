@@ -5,9 +5,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.IsoFields;
 
-/**
- * 排行榜周期键。学期划分（可按学校校历调整）：2–7 月为春季学期，8–12 月与次年 1 月为秋季学期。
- */
 public final class AcademicTerm {
 
     public static final ZoneId CAMPUS_ZONE = ZoneId.of("Asia/Shanghai");
@@ -16,17 +13,25 @@ public final class AcademicTerm {
     }
 
     public static String termKey(Instant at) {
-        // TODO(S3)：实现 AcademicTerm.termKey——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：AcademicTerm.termKey 尚未实现");
+        LocalDate d = LocalDate.ofInstant(at, CAMPUS_ZONE);
+        int m = d.getMonthValue();
+        int year = d.getYear();
+        if (m >= 2 && m <= 5) {
+            return year + "-SPRING";
+        } else if (m >= 6 && m <= 12) {
+            return year + "-FALL";
+        } else {
+            return (year - 1) + "-FALL";
+        }
     }
 
     public static String weekKey(Instant at) {
-        // TODO(S3)：实现 AcademicTerm.weekKey——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：AcademicTerm.weekKey 尚未实现");
+        LocalDate d = LocalDate.ofInstant(at, CAMPUS_ZONE);
+        return d.get(IsoFields.WEEK_BASED_YEAR) + "-W" + String.format("%02d", d.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR));
     }
 
     public static String monthKey(Instant at) {
-        // TODO(S3)：实现 AcademicTerm.monthKey——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：AcademicTerm.monthKey 尚未实现");
+        LocalDate d = LocalDate.ofInstant(at, CAMPUS_ZONE);
+        return d.getYear() + "-" + String.format("%02d", d.getMonthValue());
     }
 }
