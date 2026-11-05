@@ -301,6 +301,41 @@ Feature: 投票计分
     Then 只计入 5，声誉 +5（不超 200）
 ```
 
+### PB-23 徽章自动授予（Should）
+
+```gherkin
+Feature: 徽章自动授予
+  Scenario: 首次回答获得 FIRST_ANSWER
+    Given 作者从未提交过回答
+    When 系统处理 AnswerSubmittedEvent
+    Then 作者徽章墙新增 FIRST_ANSWER
+
+  Scenario: 首次回答被采纳获得 FIRST_ACCEPTED
+    Given 作者历史被采纳次数为 0
+    When 其回答被采纳
+    Then 徽章墙新增 FIRST_ACCEPTED
+
+  Scenario: 累计 10 次被采纳获得 HELPER_10
+    Given 作者累计被采纳 9 次
+    When 第 10 次回答被采纳
+    Then 徽章墙新增 HELPER_10
+
+  Scenario: 声誉达到阈值自动授予
+    Given 作者声誉达到 100
+    When 声誉变更后触发徽章检查
+    Then 徽章墙新增 REPUTATION_100
+    And 声誉达到 1000 时再获 REPUTATION_1000
+
+  Scenario: 教师认证获得 TEACHER_ENDORSED
+    Given 某回答首次获得教师认证
+    When 系统处理 AnswerEndorsedEvent
+    Then 回答者徽章墙新增 TEACHER_ENDORSED
+
+  Scenario: 幂等——重复事件不重复发徽章
+    Given 作者已拥有 FIRST_ACCEPTED
+    When AnswerAcceptedEvent 再次触发
+    Then 徽章墙数量不变，不重复发
+```
 ### PB-24 / PB-25 悬赏
 
 ```gherkin
