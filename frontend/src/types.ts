@@ -37,3 +37,14 @@ export interface ReputationProfile {
   userId: number; displayName: string; reputation: number; availablePoints?: number; frozenPoints?: number;
   badges: { code: string; name: string; description: string; awardedAt: string }[];
 }
+
+export interface Bounty {
+  id: number; questionId: number; sponsorId: number; sponsorName: string;
+  points: number; status: 'OPEN' | 'AWARDED' | 'EXPIRED' | string;
+  createdAt: string; expiresAt: string; winnerId?: number; answerId?: number;
+}
+
+export interface LedgerEntry {
+  id: number; reason: string; reasonLabel: string; delta: number;
+  refType: string; refId: number; createdAt: string;
+}

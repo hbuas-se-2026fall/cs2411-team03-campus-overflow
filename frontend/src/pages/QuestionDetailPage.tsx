@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, describeError } from '../api';
 import { useAuth } from '../auth';
-import type { Answer, QuestionDetail } from '../types';
+import type { Answer, Bounty, QuestionDetail } from '../types';
 
 export function QuestionDetailPage() {
   const { id } = useParams();
@@ -24,8 +24,15 @@ export function QuestionDetailPage() {
   const [editingA, setEditingA] = useState<number | null>(null);
   const [aBody, setABody] = useState('');
 
+  // 悬赏
+  const [bounty, setBounty] = useState<Bounty | null>(null);
+  const [showBountyDialog, setShowBountyDialog] = useState(false);
+  const [bountyPoints, setBountyPoints] = useState(50);
+  const [bountyDays, setBountyDays] = useState(7);
+
   const load = useCallback(() => {
     api.question(questionId).then(setQ).catch((e) => setError(describeError(e)));
+    api.bountyLatest(questionId).then((b) => setBounty(b ?? null)).catch(() => setBounty(null));
   }, [questionId]);
 
   useEffect(() => {
@@ -38,6 +45,8 @@ export function QuestionDetailPage() {
   if (!q) return <p className="muted">{error || '加载中…'}</p>;
 
   const canManage = q.permissions.canManage;
+  const previewExpire = (days: number) =>
+    new Date(Date.now() + days * 86_400_000).toLocaleString('zh-CN');
 
   const startEditQ = () => {
     setQTitle(q.title);
@@ -110,12 +119,35 @@ export function QuestionDetailPage() {
                   </div>
                 )}
                 <CommentList comments={q.comments} targetType="QUESTION" targetId={q.id} onDone={load} canComment={!!me} />
-                {canManage && (
-                  <button className="link" onClick={() => {
-                    const points = Number(prompt('悬赏积分（10–500）', '50'));
-                    if (points) act(() => api.bounty(q.id, points, 7));
-                  }}>发起悬赏
-                  </button>
+                {bounty?.status === 'OPEN' && (
+                  <div className="bounty-banner">
+                    悬赏 {bounty.points} 积分 · 剩余 <Countdown expiresAt={bounty.expiresAt} />
+                  </div>
+                )}
+                {canManage && bounty?.status !== 'OPEN' && (
+                  showBountyDialog ? (
+                    <div className="edit-form">
+                      <h3>发起悬赏</h3>
+                      <label className="field">积分（10–500）
+                        <input type="number" min={10} max={500} value={bountyPoints}
+                               onChange={(e) => setBountyPoints(Number(e.target.value))} />
+                      </label>
+                      <label className="field">悬赏天数（1–14）
+                        <input type="number" min={1} max={14} value={bountyDays}
+                               onChange={(e) => setBountyDays(Number(e.target.value))} />
+                      </label>
+                      <p className="muted">预计截止：{previewExpire(bountyDays)}</p>
+                      <div className="actions">
+                        <button className="primary" onClick={() => act(async () => {
+                          await api.bounty(q.id, bountyPoints, bountyDays);
+                          setShowBountyDialog(false);
+                        })}>确认悬赏</button>
+                        <button className="link" onClick={() => setShowBountyDialog(false)}>取消</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button className="link" onClick={() => setShowBountyDialog(true)}>发起悬赏</button>
+                  )
                 )}
               </div>
             </div>
@@ -244,5 +276,25 @@ function CommentList({ comments, targetType, targetId, onDone, canComment }: {
       ) : <button className="link" onClick={() => setOpen(true)}>添加评论</button>)}
       {err && <p className="error">{err}</p>}
     </div>
+  );
+}
+
+/** 悬赏倒计时：每秒刷新，显示距离 expiresAt 的剩余天时分秒。 */
+function Countdown({ expiresAt }: { expiresAt: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const left = new Date(expiresAt).getTime() - now;
+  if (left <= 0) return <span>已截止</span>;
+  const d = Math.floor(left / 86_400_000);
+  const h = Math.floor((left % 86_400_000) / 3_600_000);
+  const m = Math.floor((left % 3_600_000) / 60_000);
+  const s = Math.floor((left % 60_000) / 1000);
+  return (
+    <span>
+      {d}天 {String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
+    </span>
   );
 }

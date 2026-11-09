@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api';
 import type { LeaderboardEntry } from '../types';
 
@@ -7,9 +8,11 @@ const PERIODS = [['week', '本周'], ['month', '本月'], ['term', '本学期'],
 export function LeaderboardPage() {
   const [period, setPeriod] = useState<string>('week');
   const [rows, setRows] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.leaderboard(period).then(setRows).catch(() => setRows([]));
+    setLoading(true);
+    api.leaderboard(period).then(setRows).catch(() => setRows([])).finally(() => setLoading(false));
   }, [period]);
 
   return (
@@ -28,13 +31,17 @@ export function LeaderboardPage() {
           {rows.map((r) => (
             <tr key={r.userId}>
               <td>{r.rank}</td>
-              <td>{r.displayName}{r.verified && <span className="verified" title="已认证">✔</span>}</td>
+              <td>
+                <Link to={`/users/${r.userId}/reputation`}>{r.displayName}</Link>
+                {r.verified && <span className="verified" title="已认证">✔</span>}
+              </td>
               <td>{r.score}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      {rows.length === 0 && <p className="muted">这个周期还没有数据。</p>}
+      {loading && <p className="muted">加载中…</p>}
+      {!loading && rows.length === 0 && <p className="muted">这个周期还没有数据。</p>}
     </div>
   );
 }
