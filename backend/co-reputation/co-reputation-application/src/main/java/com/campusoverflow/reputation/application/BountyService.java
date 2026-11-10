@@ -30,6 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class BountyService {
 
+    /** 到期任务单批处理上限，避免一次扫表过久占住事务。 */
+    private static final int EXPIRE_BATCH_SIZE = 100;
+
     private final BountyRepository bounties;
     private final ReputationAccountRepository accounts;
     private final ReputationLedgerService ledgerService;
@@ -54,32 +57,86 @@ public class BountyService {
 
     @Transactional
     public long open(Actor actor, long questionId, int points, int days) {
-        // TODO(S3)：实现 BountyService.open——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：BountyService.open 尚未实现");
+        QuestionRef question = qa.findQuestion(questionId)
+                .orElseThrow(() -> new NotFoundException("REP-4002", "问题不存在或已删除"));
+        boolean questionOpen = !question.deleted() && question.acceptedAnswerId() == null;
+        boolean manages = identity.canManageCourse(actor.userId(), question.courseId());
+        if (bounties.findOpenByQuestion(questionId).isPresent()) {
+            throw new ConflictException("REP-2001", "该问题已有进行中的悬赏");
+        }
+        Instant now = clock.instant();
+        Bounty bounty = Bounty.open(questionId, questionOpen, actor, manages, points, days, now);
+        ReputationAccount sponsor = accountOf(actor.userId());
+        sponsor.freezePoints(points);
+        accounts.save(sponsor);
+        Bounty saved = bounties.save(bounty);
+        events.publish(new BountyOpenedEvent(EventIds.next(), now, saved.id(), questionId, actor.userId(), points,
+                saved.expiresAt()));
+        audit.record("BOUNTY_OPENED", actor.userId(), "BOUNTY", String.valueOf(saved.id()),
+                "问题 " + questionId + "：" + points + " 分 / " + days + " 天");
+        return saved.id();
     }
 
     /** 由 AnswerAccepted 事件触发（在处理器事务内）。幂等：悬赏已结束则直接返回。 */
     @Transactional(propagation = Propagation.MANDATORY)
     public void settleOnAccept(long questionId, long answerId, long winnerId, String sourceEventId) {
-        // TODO(S3)：实现 BountyService.settleOnAccept——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：BountyService.settleOnAccept 尚未实现");
+        Optional<Bounty> running = bounties.findOpenByQuestion(questionId);
+        if (running.isEmpty()) {
+            return;
+        }
+        Bounty bounty = running.get();
+        Instant now = clock.instant();
+        ReputationAccount sponsor = accountOf(bounty.sponsorId());
+        if (winnerId == bounty.sponsorId()) {
+            closeAndRefund(bounty, sponsor, now);
+            return;
+        }
+        bounty.award(answerId, winnerId, now);
+        sponsor.spendFrozen(bounty.points());
+        accounts.save(sponsor);
+        bounties.save(bounty);
+        ledgerService.record(winnerId, sourceEventId, ReputationReason.BOUNTY_AWARDED, bounty.points(), "BOUNTY",
+                bounty.id());
+        events.publish(new BountyAwardedEvent(EventIds.next(), now, bounty.id(), questionId, bounty.sponsorId(),
+                winnerId, bounty.points()));
+        audit.record("BOUNTY_AWARDED", winnerId, "BOUNTY", String.valueOf(bounty.id()),
+                "问题 " + questionId + "：" + bounty.points() + " 分归回答者 " + winnerId);
     }
 
     /** 到期未采纳的悬赏：关闭并退回冻结积分。由定时任务调用。 */
     @Transactional
     public int expireDue() {
-        // TODO(S3)：实现 BountyService.expireDue——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：BountyService.expireDue 尚未实现");
+        Instant now = clock.instant();
+        List<Bounty> due = bounties.findDue(now, EXPIRE_BATCH_SIZE);
+        int closed = 0;
+        for (Bounty bounty : due) {
+            closeAndRefund(bounty, accountOf(bounty.sponsorId()), now);
+            closed++;
+        }
+        return closed;
     }
 
     @Transactional(readOnly = true)
     public Optional<BountyView> latest(long questionId) {
-        // TODO(S3)：实现 BountyService.latest——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：BountyService.latest 尚未实现");
+        return bounties.findLatestByQuestion(questionId)
+                .map(b -> new BountyView(b.id(), b.questionId(), b.sponsorId(),
+                        identity.findUser(b.sponsorId()).map(UserSummary::displayName).orElse(null), b.points(),
+                        b.status().name(), b.createdAt(), b.expiresAt(), b.winnerId(), b.answerId()));
     }
 
     private void closeAndRefund(Bounty bounty, ReputationAccount sponsor, Instant now) {
-        // TODO(S3)：实现 BountyService.closeAndRefund——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：BountyService.closeAndRefund 尚未实现");
+        bounty.close(now);
+        sponsor.refundFrozen(bounty.points());
+        accounts.save(sponsor);
+        bounties.save(bounty);
+        events.publish(new BountyClosedEvent(EventIds.next(), now, bounty.id(), bounty.questionId(),
+                bounty.sponsorId(), bounty.points()));
+        audit.record("BOUNTY_CLOSED", sponsor.userId(), "BOUNTY", String.valueOf(bounty.id()),
+                "退回 " + bounty.points() + " 分冻结积分");
+    }
+
+    /** 悬赏相关操作一律要求发起人已有声誉账户（开户由 UserRegistered 事件完成）。 */
+    private ReputationAccount accountOf(long userId) {
+        return accounts.findByUserId(userId).orElseThrow(() -> new NotFoundException("REP-4001", "声誉账户不存在"));
     }
 }
