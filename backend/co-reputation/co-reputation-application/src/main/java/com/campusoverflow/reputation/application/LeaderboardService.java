@@ -35,13 +35,33 @@ public class LeaderboardService {
     @EventListener
     @Transactional
     public void on(ReputationChangedEvent e) {
-        // TODO(S3)：实现 LeaderboardService.on——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：LeaderboardService.on 尚未实现");
+        // 声誉发生变化时，把增量累加到「周/月/学期」三个 Redis ZSET；总榜直接读账户表。
+        store.increment(e.userId(), e.delta(), e.occurredAt());
     }
 
     @Transactional(readOnly = true)
     public List<LeaderboardEntryView> top(LeaderboardPeriod period, int limit) {
-        // TODO(S3)：实现 LeaderboardService.top——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：LeaderboardService.top 尚未实现");
+        List<LeaderboardStore.Entry> raw;
+        if (period == LeaderboardPeriod.ALL) {
+            raw = accounts.topByReputation(limit).stream()
+                    .map(a -> new LeaderboardStore.Entry(a.userId(), a.reputation()))
+                    .toList();
+        } else {
+            raw = store.top(period, clock.instant(), limit);
+        }
+        if (raw.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, UserSummary> users =
+                identity.findUsers(raw.stream().map(LeaderboardStore.Entry::userId).toList());
+        List<LeaderboardEntryView> result = new ArrayList<>();
+        int rank = 1;
+        for (LeaderboardStore.Entry entry : raw) {
+            UserSummary user = users.get(entry.userId());
+            String displayName = user != null ? user.displayName() : "用户" + entry.userId();
+            boolean verified = user != null && user.verified();
+            result.add(new LeaderboardEntryView(rank++, entry.userId(), displayName, verified, entry.score()));
+        }
+        return result;
     }
 }

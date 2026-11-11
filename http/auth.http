@@ -1,0 +1,72 @@
+### CampusOverflow 冒烟脚本（T0-08）
+### 流程：csrf → register → login → me → courses → join
+### 前置：docker compose up -d mysql redis；启动 co-bootstrap（默认 8080）
+### 在 IntelliJ IDEA 里直接点每行左侧绿色三角运行；cookie 由 IDEA HTTP Client 自动管理
+
+@baseUrl = http://localhost:8080
+
+### 1. 取 CSRF Token（同时后端种下 XSRF-TOKEN cookie）
+GET {{baseUrl}}/api/v1/auth/csrf
+Accept: application/json
+
+> {%
+client.global.set("csrfToken", response.body.token);
+client.global.set("csrfHeader", response.body.headerName);
+console.log("CSRF token = " + client.global.get("csrfToken"));
+%}
+
+### 2. 注册一个测试学生
+POST {{baseUrl}}/api/v1/auth/register
+Content-Type: application/json
+{{csrfHeader}}: {{csrfToken}}
+
+{
+  "username": "demo_student",
+  "displayName": "演示学生",
+  "email": "demo@hbuas.edu.cn",
+  "password": "demo1234",
+  "college": "计算机科学与技术学院",
+  "className": "CS2411"
+}
+
+### 3. 登录（成功后后端种下 SESSION cookie）
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+{{csrfHeader}}: {{csrfToken}}
+
+{
+  "username": "demo_student",
+  "password": "demo1234"
+}
+
+> {%
+const body = response.body;
+console.log("登录用户 = " + body.username + " id = " + body.userId);
+client.global.set("currentUserId", body.userId);
+%}
+
+### 4. 查看当前登录用户（应返回上面这个学生）
+GET {{baseUrl}}/api/v1/auth/me
+Accept: application/json
+{{csrfHeader}}: {{csrfToken}}
+
+### 5. 列出课程
+GET {{baseUrl}}/api/v1/courses
+Accept: application/json
+{{csrfHeader}}: {{csrfToken}}
+
+> {%
+// 取第一门课 id，用于下一步 join
+const courses = response.body;
+if (Array.isArray(courses) && courses.length > 0) {
+  client.global.set("courseId", courses[0].id);
+  console.log("加入课程 = " + courses[0].name + " (id=" + courses[0].id + ")");
+} else {
+  console.log("课程列表为空，跳过 join");
+}
+%}
+
+### 6. 加入第一门课
+POST {{baseUrl}}/api/v1/courses/{{courseId}}/join
+Content-Type: application/json
+{{csrfHeader}}: {{csrfToken}}
