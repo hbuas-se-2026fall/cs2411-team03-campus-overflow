@@ -13,24 +13,19 @@ import com.campusoverflow.reputation.domain.ReputationAccountRepository;
 import com.campusoverflow.reputation.domain.ReputationReason;
 import com.campusoverflow.reputation.domain.ReputationRulebook;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 订阅上游上下文的集成事件（由 OutboxRelay 在事务提交后投递，至少一次语义）。
- * 每个处理器运行在自己的事务中，并通过账本唯一键 / 徽章存在性检查实现幂等。
- * <p>行走骨架（PB-18，指导书 6.3.4）：Sprint 1 暂为空实现（只打 DEBUG 日志），避免发件箱被阻塞；
- * 实现/移除见 tech-debt Issue #67（Sprint 2 按 T2-12 完成）。</p>
+ * 订阅上游上下文的集成事件（OutboxRelay 在事务提交后投递，至少一次语义）。
+ * 幂等由账本 (eventId,userId,reason) 唯一键与徽章存在性检查保证。
  */
 @Component
 public class ReputationEventHandlers {
-
-    private static final Logger log = LoggerFactory.getLogger(ReputationEventHandlers.class);
 
     private final ReputationAccountRepository accounts;
     private final LedgerRepository ledger;
@@ -50,39 +45,56 @@ public class ReputationEventHandlers {
         this.clock = clock;
     }
 
+    /** 注册开户：账户已存在则忽略（幂等），否则按角色发放初始悬赏积分（ADR-010）。 */
     @EventListener
     @Transactional
     public void on(UserRegisteredEvent e) {
-        // 行走骨架：空实现，事件被标记为已投递。实现见 Issue #67。
-        log.debug("[walking-skeleton] Reputation 尚未实现，忽略事件 {}", e.eventId()); // TODO(S3) 见 Issue #67
+        accounts.findByUserId(e.userId()).orElseGet(
+                () -> accounts.save(ReputationAccount.open(e.userId(), ReputationRulebook.initialPoints(e.role()))));
     }
 
-    /** 场景 R-2 的异步后半段：采纳 → 回答者 +15 → 徽章 → 悬赏结算。 */
+    /** 场景 R-2：采纳 → 回答者 +15 → 采纳数徽章 → 悬赏结算。 */
     @EventListener
     @Transactional
     public void on(AnswerAcceptedEvent e) {
-        // 行走骨架：空实现，事件被标记为已投递。实现见 Issue #67。
-        log.debug("[walking-skeleton] Reputation 尚未实现，忽略事件 {}", e.eventId()); // TODO(S3) 见 Issue #67
+        int delta = ReputationRulebook.acceptedDelta(e.answerAuthorId(), e.questionAuthorId());
+        ledgerService.record(e.answerAuthorId(), e.eventId(), ReputationReason.ANSWER_ACCEPTED, delta,
+                "ANSWER", e.answerId());
+        long acceptedCount = ledger.countByUserAndReason(e.answerAuthorId(), ReputationReason.ANSWER_ACCEPTED);
+        BadgePolicy.forAcceptedCount(acceptedCount).forEach(type -> badges.grant(e.answerAuthorId(), type));
+        bounties.settleOnAccept(e.questionId(), e.answerId(), e.answerAuthorId(), e.eventId());
     }
 
+    /** 投票：按差值计分，reason 区分问题/回答；正向部分受每日 200 上限约束。 */
     @EventListener
     @Transactional
     public void on(VoteCastEvent e) {
-        // 行走骨架：空实现，事件被标记为已投递。实现见 Issue #67。
-        log.debug("[walking-skeleton] Reputation 尚未实现，忽略事件 {}", e.eventId()); // TODO(S3) 见 Issue #67
+        ReputationReason reason = "QUESTION".equals(e.targetType())
+                ? ReputationReason.QUESTION_VOTE
+                : ReputationReason.ANSWER_VOTE;
+        int rawDelta = ReputationRulebook.voteDelta(e.oldValue(), e.newValue());
+        if (rawDelta <= 0) {
+            ledgerService.record(e.targetAuthorId(), e.eventId(), reason, rawDelta, e.targetType(), e.targetId());
+            return;
+        }
+        Instant startOfDay = LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC)
+                .atStartOfDay(ZoneOffset.UTC).toInstant();
+        int gainedToday = ledger.sumPositiveVoteDeltaSince(e.targetAuthorId(), startOfDay);
+        int capped = ReputationRulebook.applyDailyCap(rawDelta, gainedToday);
+        if (capped != 0) {
+            ledgerService.record(e.targetAuthorId(), e.eventId(), reason, capped, e.targetType(), e.targetId());
+        }
     }
 
     @EventListener
     @Transactional
     public void on(AnswerSubmittedEvent e) {
-        // 行走骨架：空实现，事件被标记为已投递。实现见 Issue #67。
-        log.debug("[walking-skeleton] Reputation 尚未实现，忽略事件 {}", e.eventId()); // TODO(S3) 见 Issue #67
+        badges.grant(e.answerAuthorId(), BadgeType.FIRST_ANSWER);
     }
 
     @EventListener
     @Transactional
     public void on(AnswerEndorsedEvent e) {
-        // 行走骨架：空实现，事件被标记为已投递。实现见 Issue #67。
-        log.debug("[walking-skeleton] Reputation 尚未实现，忽略事件 {}", e.eventId()); // TODO(S3) 见 Issue #67
+        badges.grant(e.answerAuthorId(), BadgeType.TEACHER_ENDORSED);
     }
 }

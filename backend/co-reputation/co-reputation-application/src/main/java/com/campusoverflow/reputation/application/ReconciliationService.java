@@ -3,13 +3,15 @@ package com.campusoverflow.reputation.application;
 import com.campusoverflow.reputation.domain.LedgerRepository;
 import com.campusoverflow.reputation.domain.ReputationAccount;
 import com.campusoverflow.reputation.domain.ReputationAccountRepository;
+import com.campusoverflow.shared.domain.ForbiddenException;
+import com.campusoverflow.shared.security.Actor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 适应度函数 FF-8：对账——每个账户的声誉必须等于其流水之和。 */
+/** 对账（FF-8）：账户声誉值必须等于账本流水之和。 */
 @Service
 public class ReconciliationService {
 
@@ -24,9 +26,25 @@ public class ReconciliationService {
         this.ledger = ledger;
     }
 
+    /** 管理员入口：非管理员 403 REP-3002。 */
+    @Transactional(readOnly = true)
+    public List<Mismatch> reconcile(Actor actor) {
+        if (!actor.isAdmin()) {
+            throw new ForbiddenException("REP-3002", "仅管理员可查看对账结果");
+        }
+        return reconcile();
+    }
+
     @Transactional(readOnly = true)
     public List<Mismatch> reconcile() {
-        // TODO(S3)：实现 ReconciliationService.reconcile——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：ReconciliationService.reconcile 尚未实现");
+        Map<Long, Long> sums = ledger.sumByUser();
+        List<Mismatch> result = new ArrayList<>();
+        for (ReputationAccount acc : accounts.findAll()) {
+            long sum = sums.getOrDefault(acc.userId(), 0L);
+            if (acc.reputation() != sum) {
+                result.add(new Mismatch(acc.userId(), acc.reputation(), sum));
+            }
+        }
+        return result;
     }
 }
