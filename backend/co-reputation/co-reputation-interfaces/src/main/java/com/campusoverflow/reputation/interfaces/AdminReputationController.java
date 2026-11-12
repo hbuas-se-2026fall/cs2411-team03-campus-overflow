@@ -1,7 +1,9 @@
 package com.campusoverflow.reputation.interfaces;
 
 import com.campusoverflow.reputation.application.ReconciliationService;
+import com.campusoverflow.shared.security.Actor;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,9 +21,9 @@ public class AdminReputationController {
         this.reconciliation = reconciliation;
     }
 
-    @Operation(summary = "立即执行声誉对账（FF-8）")
+    @Operation(summary = "立即执行声誉对账（FF-8，仅管理员）")
     @GetMapping("/reconciliation")
-    public List<ReconciliationService.Mismatch> reconcile() {
-        return reconciliation.reconcile();
+    public List<ReconciliationService.Mismatch> reconcile(@Parameter(hidden = true) Actor actor) {
+        return reconciliation.reconcile(actor);
     }
 }

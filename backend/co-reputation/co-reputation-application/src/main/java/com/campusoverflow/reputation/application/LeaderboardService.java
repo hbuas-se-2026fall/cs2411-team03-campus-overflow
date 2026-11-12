@@ -36,6 +36,9 @@ public class LeaderboardService {
     @Transactional
     public void on(ReputationChangedEvent e) {
         // 声誉发生变化时，把增量累加到「周/月/学期」三个 Redis ZSET；总榜直接读账户表。
+        if (!processed.markProcessed(e.eventId(), "reputation.leaderboard")) {
+            return;
+        }
         store.increment(e.userId(), e.delta(), e.occurredAt());
     }
 

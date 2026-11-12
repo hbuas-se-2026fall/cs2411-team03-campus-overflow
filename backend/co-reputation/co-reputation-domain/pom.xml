@@ -44,7 +44,7 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>${domain.coverage.minimum}</minimum>
+                                            <minimum>${reputation.domain.coverage.minimum}</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
