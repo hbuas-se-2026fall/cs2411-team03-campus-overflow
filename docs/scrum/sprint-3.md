@@ -17,14 +17,16 @@
 | #37 | T3-05 | 搜索与筛选排序（`DiscoveryQueryService.search`） | Sherpherd-W | open |
 | #38 | T3-04 | 搜索投影幂等更新（`SearchIndexProjector` 9 个 on + 去重守卫） | Can0401 | open |
 | #39 | T3-05 | 相关问题推荐（`DiscoveryQueryService.related`） | Can0401（复核） | open |
-| #40 | T3-03b、T3-06 | 通知六类事件与投影 | zhaojeak | 已实现，待关闭 |
-| #41 | T3-03a、T3-11 | @ 提醒解析与评论高亮 | Arthur20060209 | 解析器已合并，前端未做 |
+| #40 | T3-03b、T3-06、T3-07 | 通知六类事件与投影（PB-34/36） | zhaojeak | 部分完成：六类投影已合并；列表/未读数/标记已读端点待 T3-07 |
+| #41 | T3-03a、T3-11 | @ 提醒解析与评论高亮（PB-35/36） | Arthur20060209 | 解析器已合并，前端未做 |
 | #42 | T3-07、T3-11 | 通知列表、未读数与已读 | Arthur20060209 | open |
 | #43 | T3-09、T3-10 | 端到端全绿、移除行走骨架、覆盖率 0.70 | Sherpherd-W | open |
 | #44 | T3-12 前置 | demo profile 演示数据补齐 | zhaojeak | open |
-| #45 | T3-08 | Discovery 应用层测试 | zhaojeak | 已完成（10 用例） |
+| #45 | T3-08、T3-09、T3-10 | PB-39 质量门禁（端到端全绿 + 覆盖率 0.70 + 投影幂等） | zhaojeak | 部分完成：投影幂等用例已合并（10 用例）；另两项待 T3-09/T3-10 |
 
 说明：#37 与 #39 共用 `DiscoveryQueryService` 一个文件，`related` 方法由 Sherpherd-W 在同一 PR 内实现，#39 由 Can0401 复核后关闭。
+
+说明：#40 与 #45 的 Gherkin（`docs/backlog/acceptance-criteria.md`）覆盖范围大于任务名——PB-34/36 含"通知列表与未读数""标记已读"两个场景，PB-39 含"端到端链路全绿""领域覆盖率 0.70"两个场景，因此两者均不能仅凭后端投影实现关闭。
 
 工时口径：4 人组下 Sprint 3 合计 53 人时（T3-12 按 2×4 计）。截至本记录已完成 17 人时（T3-01、T3-02、T3-03、T3-06、T3-08），剩余 36 人时。
 
