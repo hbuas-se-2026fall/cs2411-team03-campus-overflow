@@ -14,8 +14,16 @@ public final class MentionParser {
     private MentionParser() {
     }
 
+    /** 去重保序地取出全部 @昵称，最多 MAX_MENTIONS 个；文本为空时返回空集合。 */
     public static Set<String> extract(String text) {
-        // TODO(S3)：实现 MentionParser.extract——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：MentionParser.extract 尚未实现");
+        Set<String> names = new LinkedHashSet<>();
+        if (text == null || text.isBlank()) {
+            return names;
+        }
+        Matcher matcher = MENTION.matcher(text);
+        while (names.size() < MAX_MENTIONS && matcher.find()) {
+            names.add(matcher.group(1));
+        }
+        return names;
     }
 }
