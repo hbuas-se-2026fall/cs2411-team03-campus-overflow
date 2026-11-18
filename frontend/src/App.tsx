@@ -20,7 +20,12 @@ function Header() {
     const load = () => api.unreadCount().then((r) => setUnread(r.count)).catch(() => undefined);
     load();
     const timer = setInterval(load, 30_000);
-    return () => clearInterval(timer);
+    // 通知页标记已读后立即刷新徽标
+    window.addEventListener('co:unread-changed', load);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('co:unread-changed', load);
+    };
   }, [me]);
 
   return (

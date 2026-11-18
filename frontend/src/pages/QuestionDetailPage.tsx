@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, describeError } from '../api';
 import { useAuth } from '../auth';
-import type { Answer, Bounty, QuestionDetail } from '../types';
+import type { Answer, Bounty, QuestionDetail, RelatedQuestion } from '../types';
 
 export function QuestionDetailPage() {
   const { id } = useParams();
@@ -10,7 +10,7 @@ export function QuestionDetailPage() {
   const navigate = useNavigate();
   const { me } = useAuth();
   const [q, setQ] = useState<QuestionDetail | null>(null);
-  const [related, setRelated] = useState<{ id: number; title: string }[]>([]);
+  const [related, setRelated] = useState<RelatedQuestion[]>([]);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
 
@@ -37,7 +37,7 @@ export function QuestionDetailPage() {
 
   useEffect(() => {
     load();
-    api.related(questionId).then(setRelated).catch(() => undefined);
+    api.related(questionId, 5).then(setRelated).catch(() => undefined);
   }, [load, questionId]);
 
   const act = (fn: () => Promise<unknown>) => fn().then(load).catch((e) => setError(describeError(e)));
@@ -212,8 +212,17 @@ export function QuestionDetailPage() {
 
       <aside>
         <h3>相关问题</h3>
-        <ul className="plain">
-          {related.map((r) => <li key={r.id}><Link to={`/questions/${r.id}`}>{r.title}</Link></li>)}
+        <ul className="plain related">
+          {related.map((r) => (
+            <li key={r.id}>
+              <Link to={`/questions/${r.id}`}>{r.title}</Link>
+              <span className="muted related-meta">
+                {r.answerCount} 回答
+                {r.accepted && <span className="accepted-mark">已采纳</span>}
+                <span className="similarity">{Math.round(r.similarity * 100)}%</span>
+              </span>
+            </li>
+          ))}
           {related.length === 0 && <li className="muted">暂无</li>}
         </ul>
       </aside>
@@ -249,7 +258,7 @@ function CommentList({ comments, targetType, targetId, onDone, canComment }: {
       {top.map((c) => (
         <div key={c.id}>
           <div className="comment">
-            <span>{c.body}</span>
+            <span><MentionText text={c.body} /></span>
             <span className="muted"> — {c.author.displayName}</span>
             {canComment && <button className="link" onClick={() => setReplyTo(replyTo === c.id ? null : c.id)}>回复</button>}
           </div>
@@ -262,7 +271,7 @@ function CommentList({ comments, targetType, targetId, onDone, canComment }: {
           )}
           {repliesOf(c.id).map((re) => (
             <div className="comment reply" key={re.id}>
-              <span>{re.body}</span>
+              <span><MentionText text={re.body} /></span>
               <span className="muted"> — {re.author.displayName}</span>
             </div>
           ))}
@@ -296,5 +305,23 @@ function Countdown({ expiresAt }: { expiresAt: string }) {
     <span>
       {d}天 {String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
     </span>
+  );
+}
+
+/**
+ * 评论中的 @昵称 高亮。
+ * 与后端 MentionParser 保持一致：@ 后 2–20 个非空白、非标点字符。
+ */
+const MENTION_PATTERN = /(@[^\s@，。,.!?！？:：;；、]{2,20})/g;
+
+function MentionText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(MENTION_PATTERN).map((part, i) =>
+        part.startsWith('@')
+          ? <span className="mention" key={i}>{part}</span>
+          : <span key={i}>{part}</span>,
+      )}
+    </>
   );
 }

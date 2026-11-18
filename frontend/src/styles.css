@@ -106,3 +106,18 @@ td.pos { color: var(--accent); font-weight: 600; }
 td.neg { color: var(--danger); font-weight: 600; }
 .field { display: block; margin: 8px 0; }
 .field input { display: block; margin-top: 4px; width: 100%; max-width: 240px; }
+
+/* Sprint3 T3-11：@高亮 / 相关问题侧栏 / 通知中心 */
+.mention { color: var(--brand); background: #eaf2ff; border-radius: 4px; padding: 0 3px; font-weight: 600; }
+
+.related li { display: flex; flex-direction: column; gap: 2px; }
+.related-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.related-meta .accepted-mark { color: var(--accent); font-weight: 600; }
+.related-meta .similarity { color: var(--brand); border: 1px solid var(--line); border-radius: 10px; padding: 0 6px; }
+
+.notif-list li { display: flex; align-items: center; gap: 8px; }
+.notif .dot { width: 8px; height: 8px; border-radius: 50%; background: transparent; flex: 0 0 auto; }
+.notif .dot.on { background: var(--danger); }
+.notif-type { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 10px; padding: 0 6px; flex: 0 0 auto; }
+.notif-title { padding: 0; text-align: left; }
+.notif.read .notif-title { color: var(--muted); font-weight: 400; }

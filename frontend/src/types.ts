@@ -31,8 +31,15 @@ export interface QuestionDetail {
 }
 
 export interface SearchResult extends QuestionSummary { bountyOpen: boolean }
+
+export interface RelatedQuestion {
+  id: number; title: string; answerCount: number; accepted: boolean; similarity: number;
+}
+
 export interface LeaderboardEntry { rank: number; userId: number; displayName: string; verified: boolean; score: number }
-export interface Notification { id: number; type: string; title: string; link: string; read: boolean; createdAt: string }
+export interface Notification {
+  id: number; type: string; title: string; link: string | null; read: boolean; createdAt: string;
+}
 export interface ReputationProfile {
   userId: number; displayName: string; reputation: number; availablePoints?: number; frozenPoints?: number;
   badges: { code: string; name: string; description: string; awardedAt: string }[];

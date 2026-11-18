@@ -1,6 +1,6 @@
 import type {
   Bounty, LeaderboardEntry, LedgerEntry, Me, Notification, Page, QuestionDetail, QuestionSummary,
-  ReputationProfile, SearchResult,
+  RelatedQuestion, ReputationProfile, SearchResult,
 } from './types';
 
 /** 后端以 RFC 9457 Problem Details 返回错误，这里统一转成带业务码的异常。 */
@@ -93,15 +93,21 @@ export const api = {
   comment: (targetType: 'QUESTION' | 'ANSWER', targetId: number, body: string, parentId?: number) =>
     request<{ id: number }>('POST', '/v1/comments', { targetType, targetId, body, parentId }),
 
-  search: (q: string, params: { tag?: string; sort?: string; unanswered?: boolean; page?: number } = {}) => {
+  search: (q: string, params: {
+    courseId?: number; tag?: string; sort?: string; unanswered?: boolean; bounty?: boolean;
+    page?: number; size?: number;
+  } = {}) => {
     const search = new URLSearchParams({ q, page: String(params.page ?? 1) });
+    if (params.courseId) search.set('courseId', String(params.courseId));
     if (params.tag) search.set('tag', params.tag);
     if (params.sort) search.set('sort', params.sort);
     if (params.unanswered) search.set('unanswered', 'true');
+    if (params.bounty) search.set('bounty', 'true');
+    if (params.size) search.set('size', String(params.size));
     return get<Page<SearchResult>>(`/v1/search/questions?${search}`);
   },
-  related: (questionId: number) =>
-    get<{ id: number; title: string; answerCount: number; accepted: boolean }[]>(`/v1/questions/${questionId}/related`),
+  related: (questionId: number, limit = 5) =>
+    get<RelatedQuestion[]>(`/v1/questions/${questionId}/related?limit=${limit}`),
   popularTags: () => get<{ name: string; questionCount: number }[]>('/v1/tags/popular?limit=15'),
 
   leaderboard: (period: string) => get<LeaderboardEntry[]>(`/v1/leaderboard?period=${period}`),
@@ -113,7 +119,9 @@ export const api = {
   bountyLatest: (questionId: number) =>
     get<Bounty | undefined>(`/v1/questions/${questionId}/bounty`),
 
-  notifications: () => get<Page<Notification>>('/v1/notifications'),
+  notifications: (page = 1, size = 20) =>
+    get<Page<Notification>>(`/v1/notifications?page=${page}&size=${size}`),
   unreadCount: () => get<{ count: number }>('/v1/notifications/unread-count'),
+  markRead: (id: number) => request<void>('POST', `/v1/notifications/${id}/read`, {}),
   readAll: () => request<{ updated: number }>('POST', '/v1/notifications/read-all', {}),
 };
