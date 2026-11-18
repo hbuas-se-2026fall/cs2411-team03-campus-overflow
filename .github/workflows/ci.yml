@@ -42,12 +42,9 @@ jobs:
       - name: 覆盖率门禁（全量）
         run: mvn -B -f backend/pom.xml verify -DskipITs -Djacoco.skip=false
 
-      # 阶段 5：集成测试（Testcontainers 拉起真实 MySQL + Redis）
-      # 组织 Actions runner 配额问题（7 次 run 全红）未解决前保留 continue-on-error，
-      # runner 恢复且 FlowIT 稳定后由质量负责人删除本行，改为硬门禁。
+      # 阶段 5：集成测试（Testcontainers 拉起真实 MySQL + Redis，S3 起为硬门禁）
       - name: 集成测试
         run: mvn -B -f backend/pom.xml verify -Dsurefire.skip=true
-        continue-on-error: true
 
       - name: 归档测试报告
         if: always()
