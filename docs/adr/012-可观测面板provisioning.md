@@ -29,9 +29,13 @@
 
 - **数据源固定 uid**。面板 JSON 引用数据源需要稳定标识；写名字会在改名时断，依赖自动生成的 uid 又不可预测。固定 uid 后，仓库里两份文件是一对明确的常量。
 - **`allowUiUpdates: false`**：单一真相源在仓库。运维在 UI 上调了面板，重启即被覆盖——这是刻意的，避免「服务器上的面板和仓库里的面板不一样」这类无法复现的状态。
-- **详情页 P95 用 `histogram_quantile` 而非直接取 summary**：Spring Boot 3 + Micrometer 默认导出 `http_server_requests_seconds_bucket/_count/_sum`（percentile histogram），不是 summary。查询写成
+- **详情页 P95 用 `histogram_quantile`**：查询写成
   `histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{uri="/api/v1/questions/{questionId}"}[5m])) by (le))`，
   阈值 0.3 s 变红（QS-01）。
+
+  **Sprint 4 实测修正**：初版 ADR 这里写的是「Spring Boot 3 + Micrometer 默认导出 `_bucket/_count/_sum`（percentile histogram）」，**这是错的**。默认只导出 `_count`、`_sum`、`_max`（Timer 的基本形态），`_bucket` 需要显式打开 `management.metrics.distribution.percentiles-histogram.http.server.requests=true` 才会产生。实测证据：真实栈上 `sum(rate(http_server_requests_seconds_count{uri=...}[5m]))` 有值（93.87 req/s），而同 uri 的 `histogram_quantile(..._bucket...)` 返回 **空数组**，面板显示 "No data"——面板能加载、数据源健康、查询语法合法，但那条曲线永远画不出来。因此改为在 `application.yml` 里显式开启该开关，并在取数时确认 `_bucket` 系列确实存在后才认为这条面板可用。
+
+  这条教训值得记下：**provisioning 成功只证明面板被加载，不证明面板有数据**。任何 P95/P99 类面板都必须连带验证「查询能返回序列」这一步。
 
 阈值设计贴着业务后果而不是「看起来合理」：积压 50 黄 / 100 红（并写明「> 100 持续 5 分钟」）；死信与对账不一致为 `stat` 面板，> 0 直接红底——这两类只要非零就已经需要人工介入，不存在「观察一段时间」的余地。
 

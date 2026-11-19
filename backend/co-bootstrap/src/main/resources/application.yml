@@ -71,6 +71,12 @@ management:
   metrics:
     tags:
       application: campus-overflow
+    distribution:
+      percentiles-histogram:
+        # http.server.requests 默认只导出 _count/_sum/_max，没有 _bucket，
+        # 于是 Grafana 的 histogram_quantile 查询恒为空（S4 实测踩到）。
+        # 显式打开后才有 _bucket 系列，详情页 P95 面板才有数据（ADR-012）。
+        http.server.requests: true
 
 logging:
   level:
