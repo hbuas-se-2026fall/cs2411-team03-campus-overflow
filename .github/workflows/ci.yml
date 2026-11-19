@@ -8,13 +8,8 @@ on:
   pull_request:
     branches: [main, develop]
 
-env:
-  # 每个 Sprint 计划会后由质量负责人（E）更新（逗号分隔的模块路径）
-  # S0: co-shared-kernel,co-identity/co-identity-domain
-  # S1: 追加 co-qa/co-qa-domain,co-qa/co-qa-application
-  # S2: 追加 co-reputation/co-reputation-domain,co-reputation/co-reputation-application
-  # S3: 删除本变量，恢复全量 mvn test / verify
-  SPRINT_MODULES: co-shared-kernel,co-identity/co-identity-domain,co-qa/co-qa-domain,co-qa/co-qa-application,co-reputation/co-reputation-domain,co-reputation/co-reputation-application
+# Sprint 3 起不再按 Sprint 范围缩小测试集合（ADR-009：门禁转为全量阻断），
+# 原先的 SPRINT_MODULES 变量已删除，单元测试与覆盖率阶段恢复全量执行。
 
 jobs:
   backend:
@@ -34,23 +29,22 @@ jobs:
       - name: 编译
         run: mvn -B -f backend/pom.xml clean compile
 
-      # 阶段 2：单元测试（Sprint 范围，领域层 + 应用层，毫秒级，无外部依赖）
-      - name: 单元测试（Sprint 范围）
-        run: mvn -B -f backend/pom.xml test -pl "$SPRINT_MODULES" -am
+      # 阶段 2：单元测试（S3 起全量：领域层 + 应用层，毫秒级，无外部依赖）
+      - name: 单元测试（全量）
+        run: mvn -B -f backend/pom.xml test
 
       # 阶段 3：架构适应度函数（ArchUnit：FF-1~FF-6，始终全量）
       # -am 构建兄弟模块依赖；failIfNoSpecifiedTests=false 允许依赖模块无 ArchitectureTest
       - name: 架构约束检查
         run: mvn -B -f backend/pom.xml test -pl co-bootstrap -am -Dtest=ArchitectureTest -DfailIfNoTests=false -Dsurefire.failIfNoSpecifiedTests=false
 
-      # 阶段 4：领域层覆盖率门禁（Sprint 范围，低于阈值直接失败）
-      - name: 覆盖率门禁（Sprint 范围）
-        run: mvn -B -f backend/pom.xml verify -DskipITs -Djacoco.skip=false -pl "$SPRINT_MODULES" -am
+      # 阶段 4：领域层覆盖率门禁（S3 起全量，低于 0.70 直接失败）
+      - name: 覆盖率门禁（全量）
+        run: mvn -B -f backend/pom.xml verify -DskipITs -Djacoco.skip=false
 
-      # 阶段 5：集成测试（Testcontainers 拉起真实 MySQL + Redis；S3 前允许失败）
+      # 阶段 5：集成测试（Testcontainers 拉起真实 MySQL + Redis，S3 起为硬门禁）
       - name: 集成测试
         run: mvn -B -f backend/pom.xml verify -Dsurefire.skip=true
-        continue-on-error: true   # S3 移除此行，集成测试成为硬门禁
 
       - name: 归档测试报告
         if: always()
