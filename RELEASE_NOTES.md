@@ -141,7 +141,7 @@ cd frontend && npm install && npm run dev     # http://localhost:5173
 | 个人资料页面只读 | 用户不能自助改昵称/头像 | PB-41，未纳入本版 |
 | 管理页的教师认证审批仅接口可用 | 无图形界面 | PB-47，未纳入本版 |
 | 未做压测与缓存命中统计 | 性能数据只有单机手工观察 | PB-45，未纳入本版 |
-| Grafana 面板需手工导入 | 默认不带预置 dashboard | PB-44 只交付了 Prometheus 指标暴露 |
+| Grafana 面板需手工导入 | v1.0.0 镜像标签内不含预置面板 | Sprint 4 起由 provisioning 自动加载（#50），无需手工导入 |
 | 行走骨架的技术债未清 | `Reputation`/`Discovery` 早期空实现方法仍在 | #55，不影响功能，但代码里有死代码 |
 
 上述均已在 Sprint 4 剩余的 Issue 中登记，可按容量追加。
