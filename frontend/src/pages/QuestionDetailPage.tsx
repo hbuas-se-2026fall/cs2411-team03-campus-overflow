@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, describeError } from '../api';
 import { useAuth } from '../auth';
+import { Markdown } from '../components/Markdown';
 import type { Answer, Bounty, QuestionDetail, RelatedQuestion } from '../types';
 
 export function QuestionDetailPage() {
@@ -109,8 +110,7 @@ export function QuestionDetailPage() {
                 <button disabled={!me} onClick={() => act(() => api.vote('QUESTION', q.id, q.myVote === -1 ? 0 : -1))}>▼</button>
               </div>
               <div className="body">
-                {/* 正文由后端渲染并经 commonmark + OWASP Sanitizer 双重净化 */}
-                <div dangerouslySetInnerHTML={{ __html: q.bodyHtml }} />
+                <Markdown value={q.body} />
                 <div className="tagrow">{q.tags.map((t) => <span key={t} className="tag">{t}</span>)}</div>
                 {(q.permissions.canEdit || q.permissions.canDelete) && (
                   <div className="actions">
@@ -174,8 +174,8 @@ export function QuestionDetailPage() {
                 </div>
               ) : (
                 <>
-                  {/* 回答正文同样由后端净化 */}
-                  <div dangerouslySetInnerHTML={{ __html: a.bodyHtml }} />
+                  {/* 回答正文同样按 Markdown 渲染，原始 HTML 一律转义 */}
+                  <Markdown value={a.body} />
                   <p className="muted">
                     {a.author.displayName}
                     {a.endorsedBy && <span className="endorsed">教师认证 · {a.endorsedBy.displayName}</span>}
