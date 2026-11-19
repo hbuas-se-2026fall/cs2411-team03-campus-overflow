@@ -82,3 +82,57 @@ jobs:
         run: docker build -f deploy/backend.Dockerfile -t campus-overflow-backend:${{ github.sha }} .
       - name: 构建前端镜像
         run: docker build -f deploy/frontend.Dockerfile -t campus-overflow-web:${{ github.sha }} .
+
+  # Sprint 4 / PB-46：把"一键部署可用"变成可验证的门禁，而不是发布说明里的口头承诺。
+  # 只在 main 的 push 上跑（PR 阶段由 backend / frontend / images 三个 job 负责），
+  # 避免把每次 PR 都拖慢一个完整的镜像构建周期。
+  deploy:
+    name: 一键部署冒烟（compose 起全栈）
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 校验编排文件
+        run: docker compose -f deploy/docker-compose.yml config > /dev/null
+
+      - name: 一键部署（含演示数据 profile）
+        run: docker compose -f deploy/docker-compose.yml up -d --build
+
+      - name: 等待后端就绪
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/actuator/health/readiness > /dev/null 2>&1; then
+              echo "backend readiness OK after $((i*5))s"
+              curl -fsS http://localhost:8080/actuator/health/readiness
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "backend 探活 60 次仍未就绪"
+          exit 1
+
+      - name: 探活前端与演示数据
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /dev/null -w '%{http_code}' http://localhost/)
+          echo "web HTTP $code"
+          test "$code" = "200"
+          count=$(curl -fsS 'http://localhost:8080/api/v1/questions?page=0&size=20' \
+            | python3 -c 'import sys,json; d=json.load(sys.stdin); print(len(d.get("content", d) if isinstance(d, dict) else d))')
+          echo "questions = $count"
+          test "$count" -ge 3
+
+      - name: 服务状态
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml ps
+
+      - name: 失败时导出容器日志
+        if: failure()
+        run: docker compose -f deploy/docker-compose.yml logs --no-color --tail=300
+
+      - name: 清理
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml down -v
