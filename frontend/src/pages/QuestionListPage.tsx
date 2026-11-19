@@ -12,19 +12,21 @@ export function QuestionListPage() {
   const [activeTag, setActiveTag] = useState<string | undefined>();
   const [sort, setSort] = useState('newest');
   const [unanswered, setUnanswered] = useState(false);
+  const [bountyOnly, setBountyOnly] = useState(false);
+  const [tagInput, setTagInput] = useState('');
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
 
-  const searching = keyword.trim() !== '' || !!activeTag || unanswered || sort !== 'newest';
+  const searching = keyword.trim() !== '' || !!activeTag || unanswered || bountyOnly || sort !== 'newest';
 
   useEffect(() => {
     api.popularTags().then(setTags).catch(() => undefined);
   }, []);
 
   // 搜索条件一变，就回到第 1 页
-  useEffect(() => { setPage(1); }, [keyword, activeTag, sort, unanswered]);
+  useEffect(() => { setPage(1); }, [keyword, activeTag, sort, unanswered, bountyOnly]);
 
   // 请求数据（翻页或搜索条件变化时触发）
   useEffect(() => {
@@ -32,7 +34,7 @@ export function QuestionListPage() {
     setLoading(true);
     setError('');
     const promise = searching
-      ? api.search(keyword.trim(), { tag: activeTag, sort, unanswered, page })
+      ? api.search(keyword.trim(), { tag: activeTag, sort, unanswered, bounty: bountyOnly, page })
       : api.questions(page);
     promise
       .then((r) => { if (!cancelled) { setData(r); setLoading(false); } })
@@ -48,15 +50,24 @@ export function QuestionListPage() {
         <div className="toolbar">
           <input placeholder="搜索问题（支持中文全文检索）" value={keyword}
                  onChange={(e) => setKeyword(e.target.value)} />
+          <input placeholder="按标签筛选，回车生效" value={tagInput}
+                 onChange={(e) => setTagInput(e.target.value)}
+                 onKeyDown={(e) => {
+                   if (e.key === 'Enter') setActiveTag(tagInput.trim() || undefined);
+                 }} />
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="relevance">相关度</option>
             <option value="newest">最新</option>
             <option value="active">最近活跃</option>
             <option value="hot">得分最高</option>
-            <option value="relevance">相关度</option>
           </select>
           <label className="check">
             <input type="checkbox" checked={unanswered} onChange={(e) => setUnanswered(e.target.checked)} />
             仅看未回答
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={bountyOnly} onChange={(e) => setBountyOnly(e.target.checked)} />
+            仅看悬赏
           </label>
           {me && <Link className="primary" to="/ask">我要提问</Link>}
         </div>
