@@ -27,7 +27,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
- * 演示数据（仅 demo profile 生效）：一门课、6 个账号、3 个问题，覆盖提问→回答→投票→认证→采纳→评论→悬赏全链路。
+ * 演示数据（仅 demo profile 生效）：一门课、6 个账号、3 个问题，覆盖提问→回答→投票→认证→采纳→评论→悬赏→悬赏结算全链路。
+ * 通知中心因此同时出现「回答被采纳」「获得徽章」「悬赏获奖」三类通知，便于课堂演示与验收。
  * 课堂演示与验收时可直接登录查看效果；所有账号密码均为 {@value #PASSWORD}。
  */
 @Component
@@ -130,6 +131,13 @@ public class DemoDataSeeder implements ApplicationRunner {
                 但是抛异常后数据并没有回滚。换成从另一个 Bean 调用 `b()` 就正常了，这是为什么？
                 """, List.of("java", "spring-boot", "事务")));
         bounties.open(teacher, q2, 50, 7);
+        long a2 = answers.submit(hong, q2, """
+                因为 `@Transactional` 依赖 AOP 代理：同类内部调用 `b()` 走的是 `this`，不经过代理，
+                事务拦截器根本没有机会介入。把 `b()` 拆到另一个 Bean、注入自身代理，
+                或者用 `TransactionTemplate` 显式控制事务边界，三种做法都能解决。
+                """);
+        votes.cast(ming, TargetType.ANSWER, a2, 1);
+        answers.accept(gang, q2, a2); // 采纳后悬赏 50 分自动结算 → 小红收到「悬赏获奖」通知
 
         questions.post(hong, new PostQuestionCommand(courseId, "MySQL 的 ngram 全文索引是如何支持中文检索的？",
                 """
