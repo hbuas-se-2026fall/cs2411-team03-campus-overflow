@@ -17,9 +17,12 @@ import com.campusoverflow.reputation.api.event.BountyAwardedEvent;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * 通知中心：把上游事件转换为站内通知。幂等键 (sourceEventId, recipientId)，
@@ -38,11 +41,20 @@ public class NotificationProjector {
     private final NotificationRepository notifications;
     private final IdentityApi identity;
     private final QaQueryApi qa;
+    private final NotificationBroadcaster broadcaster;
 
+    /** 兼容既有测试与不装配推送端口的场景：等价于不推送。 */
     public NotificationProjector(NotificationRepository notifications, IdentityApi identity, QaQueryApi qa) {
+        this(notifications, identity, qa, NotificationBroadcaster.NOOP);
+    }
+
+    @Autowired
+    public NotificationProjector(NotificationRepository notifications, IdentityApi identity, QaQueryApi qa,
+                                 NotificationBroadcaster broadcaster) {
         this.notifications = notifications;
         this.identity = identity;
         this.qa = qa;
+        this.broadcaster = broadcaster;
     }
 
     /** 新回答：通知提问者；自己回答自己的问题不通知。 */
@@ -112,14 +124,40 @@ public class NotificationProjector {
                 "/me/badges", e.eventId(), e.occurredAt());
     }
 
-    /** 幂等写入：同一事件对同一收件人只落一条。 */
+    /** 幂等写入：同一事件对同一收件人只落一条；落库后按收件人推送未读数。 */
     private void notify(long recipientId, NotificationType type, String title, String link, String eventId,
                         Instant at) {
         if (notifications.exists(eventId, recipientId)) {
             return;
         }
         notifications.save(Notification.create(recipientId, type, title, link, eventId, at));
+        broadcast(recipientId);
         log.debug("通知已投递 recipient={} type={} event={}", recipientId, type, eventId);
+    }
+
+    /**
+     * 实时推送：事务内注册 afterCommit 回调，避免"推送到达时通知尚未提交、前端回查未读数拿到 0"的竞态。
+     * 无事务上下文（单元测试、非事务调用）时立即推送。
+     */
+    private void broadcast(long recipientId) {
+        Runnable push = () -> {
+            try {
+                broadcaster.pushUnread(recipientId, notifications.countUnread(recipientId));
+            } catch (RuntimeException ex) {
+                // 推送失败不影响通知落库，只记日志
+                log.warn("通知实时推送失败 recipient={}", recipientId, ex);
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    push.run();
+                }
+            });
+        } else {
+            push.run();
+        }
     }
 
     /** 操作者显示名；查不到时用“某同学”，不因此丢弃通知。 */

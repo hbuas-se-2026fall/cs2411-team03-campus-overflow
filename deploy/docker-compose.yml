@@ -88,7 +88,10 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
     depends_on: [prometheus]
     ports: ["3000:3000"]
-    volumes: ["grafana-data:/var/lib/grafana"]
+    volumes:
+      - "grafana-data:/var/lib/grafana"
+      - "./grafana/provisioning:/etc/grafana/provisioning:ro"   # 数据源与 dashboard provider 自动加载
+      - "./grafana/dashboards:/var/lib/grafana/dashboards:ro"   # 面板 JSON（CampusOverflow 文件夹）
 
 volumes:
   mysql-data:
