@@ -63,11 +63,14 @@ class DemoDataSeederIT {
         assertThat(count("SELECT COUNT(*) FROM qa_comment")).isGreaterThanOrEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM rep_bounty")).isGreaterThanOrEqualTo(1);
 
-        // 徽章：小红应拿到「初次解答 / 初露锋芒 / 名师认可」至少三枚
-        assertThat(count("SELECT COUNT(*) FROM rep_badge")).isGreaterThanOrEqualTo(3);
-
-        // 三类通知都要产生（发件箱异步中继，需等待）
+        // 徽章、悬赏结算与三类通知都由事件驱动、经发件箱异步中继产生，必须等它们真正完成
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            // 小红应拿到「初次解答 / 初露锋芒 / 名师认可」，教师另有「初次解答」
+            assertThat(count("SELECT COUNT(*) FROM rep_badge")).isGreaterThanOrEqualTo(3);
+
+            // 悬赏必须真的结算给回答者，而不是只停在 OPEN
+            assertThat(count("SELECT COUNT(*) FROM rep_bounty WHERE status = 'AWARDED'")).isEqualTo(1);
+
             List<String> types = jdbc.queryForList("SELECT DISTINCT type FROM dis_notification", String.class);
             assertThat(types).contains("ANSWER_ACCEPTED", "BADGE_AWARDED", "BOUNTY_AWARDED");
         });
