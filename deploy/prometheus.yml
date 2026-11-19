@@ -6,8 +6,9 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: ["backend:8080"]
-# 建议在 Grafana 中关注的自定义指标：
-#   co_outbox_backlog        发件箱积压（>100 持续 5 分钟应告警）
-#   co_outbox_dead_letters   死信事件数（>0 即需人工介入）
-#   co_reputation_mismatches 声誉对账不一致账户数（FF-8，应恒为 0）
-#   http_server_requests_seconds{uri="/api/v1/questions/{questionId}"}  详情页 P95（QS-01 ≤ 300ms）
+# 四个运维面板随 Grafana provisioning 自动加载，定义在 deploy/grafana/dashboards/campus-overflow.json
+# （CampusOverflow 文件夹，无需手工导入）：
+#   发件箱积压   co_outbox_backlog        > 100 持续 5 分钟应告警
+#   死信事件     co_outbox_dead_letters   > 0 即需人工介入
+#   对账不一致   co_reputation_mismatches 应恒为 0（FF-8）
+#   详情页 P95   http_server_requests_seconds_bucket{uri="/api/v1/questions/{questionId}"}  ≤ 300ms（QS-01）
