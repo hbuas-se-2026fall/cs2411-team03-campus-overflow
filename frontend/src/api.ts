@@ -1,6 +1,6 @@
 import type {
-  Bounty, LeaderboardEntry, LedgerEntry, Me, Notification, Page, QuestionDetail, QuestionSummary,
-  RelatedQuestion, ReputationProfile, SearchResult,
+  AdminUser, Bounty, LeaderboardEntry, LedgerEntry, Me, Notification, Page, QuestionDetail, QuestionSummary,
+  RelatedQuestion, ReputationProfile, Role, SearchResult,
 } from './types';
 
 /** 后端以 RFC 9457 Problem Details 返回错误，这里统一转成带业务码的异常。 */
@@ -23,6 +23,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   'QA-3001': '只有提问者或课程教师/助教可以执行此操作',
   'QA-403': '没有权限编辑/删除该内容',
   'QA-404': '内容不存在或已被删除',
+  'ID-2001': '工号、昵称或邮箱已被使用',
+  'ID-1004': '密码需 8–64 位，且同时包含字母和数字',
+  'ID-3001': '仅管理员可执行该操作',
+  'ID-4001': '用户不存在',
   'SYS-409-CONCURRENT': '内容已被他人修改，请刷新后重试',
   'SYS-409-DUPLICATE': '检测到重复提交，请勿重复操作',
   'SYS-000': '服务暂时不可用，请稍后再试',
@@ -124,4 +128,12 @@ export const api = {
   unreadCount: () => get<{ count: number }>('/v1/notifications/unread-count'),
   markRead: (id: number) => request<void>('POST', `/v1/notifications/${id}/read`, {}),
   readAll: () => request<{ updated: number }>('POST', '/v1/notifications/read-all', {}),
+
+  adminUsers: (verified = false, page = 1, size = 20) =>
+    get<Page<AdminUser>>(`/v1/admin/users?verified=${verified}&page=${page}&size=${size}`),
+  verifyUser: (id: number) => request<void>('POST', `/v1/admin/users/${id}/verify`, {}),
+  createStaff: (body: {
+    username: string; displayName: string; email: string; password: string; role: Role; college?: string;
+  }) => request<{ id: number }>('POST', '/v1/admin/users', body),
+  changeRole: (id: number, role: Role) => request<void>('PUT', `/v1/admin/users/${id}/role`, { role }),
 };

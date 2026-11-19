@@ -122,6 +122,14 @@ td.neg { color: var(--danger); font-weight: 600; }
 .notif-title { padding: 0; text-align: left; }
 .notif.read .notif-title { color: var(--muted); font-weight: 400; }
 
+/* Sprint4 #53：管理页 */
+.success { color: var(--accent); }
+.admin-page .tabs { margin: 8px 0 16px; }
+.admin-page .board { border: 1px solid var(--line); border-radius: 8px; }
+.admin-page .board th { background: #f6f8fa; font-weight: 600; font-size: 13px; }
+.admin-form { display: flex; flex-direction: column; gap: 10px; max-width: 520px; }
+.admin-form label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 14px; }
+.admin-form button { align-self: flex-start; margin-top: 6px; }
 /* Sprint4 #48：Markdown 正文与代码高亮 */
 .markdown { line-height: 1.7; word-break: break-word; }
 .markdown p { margin: 8px 0; }

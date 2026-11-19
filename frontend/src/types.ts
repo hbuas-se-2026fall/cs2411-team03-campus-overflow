@@ -55,3 +55,9 @@ export interface LedgerEntry {
   id: number; reason: string; reasonLabel: string; delta: number;
   refType: string; refId: number; createdAt: string;
 }
+
+/** 管理员视角的用户视图，学号/工号已由后端脱敏。 */
+export interface AdminUser {
+  id: number; maskedUsername: string; displayName: string; role: Role; verified: boolean;
+  college?: string; className?: string; createdAt: string;
+}
