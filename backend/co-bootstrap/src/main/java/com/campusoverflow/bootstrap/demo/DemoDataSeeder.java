@@ -1,5 +1,7 @@
 package com.campusoverflow.bootstrap.demo;
 
+import com.campusoverflow.bootstrap.outbox.OutboxRelay;
+import com.campusoverflow.bootstrap.outbox.OutboxRelayGate;
 import com.campusoverflow.identity.api.IdentityApi;
 import com.campusoverflow.identity.application.AdminUserService;
 import com.campusoverflow.identity.application.CourseService;
@@ -47,10 +49,13 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final VoteService votes;
     private final CommentService comments;
     private final BountyService bounties;
+    private final OutboxRelayGate relayGate;
+    private final OutboxRelay relay;
 
     public DemoDataSeeder(IdentityApi identity, UserRegistrationService registration, AdminUserService admins,
                           CourseService courses, QuestionCommandService questions, AnswerCommandService answers,
-                          VoteService votes, CommentService comments, BountyService bounties) {
+                          VoteService votes, CommentService comments, BountyService bounties,
+                          OutboxRelayGate relayGate, OutboxRelay relay) {
         this.identity = identity;
         this.registration = registration;
         this.admins = admins;
@@ -60,6 +65,8 @@ public class DemoDataSeeder implements ApplicationRunner {
         this.votes = votes;
         this.comments = comments;
         this.bounties = bounties;
+        this.relayGate = relayGate;
+        this.relay = relay;
     }
 
     @Override
@@ -68,6 +75,13 @@ public class DemoDataSeeder implements ApplicationRunner {
             log.info("演示数据已存在，跳过初始化");
             return;
         }
+        // 播种期间暂停发件箱中继（#96）：两者同时写 outbox_event / 通知 / 声誉表会互相等锁，
+        // 偶发死锁会把播种事务当牺牲品回滚，表现为"后端启动即退出"。
+        // 播完立刻恢复，期间产生的事件在恢复后由中继按 id 顺序正常投递。
+        relayGate.runPaused(this::seed);
+    }
+
+    private void seed() {
         Actor system = new Actor(0L, "system", Role.ADMIN); // 引导用虚拟主体，仅用于创建第一个管理员
 
         long adminId = admins.createStaff(system, new CreateStaffCommand("admin01", "系统管理员",
@@ -91,6 +105,9 @@ public class DemoDataSeeder implements ApplicationRunner {
         Actor hong = new Actor(hongId, "小红", Role.STUDENT);
         Actor gang = new Actor(gangId, "小刚", Role.STUDENT);
         List.of(mingId, hongId, gangId).forEach(id -> admins.verify(admin, id));
+        // 开户事件（UserRegistered）要靠中继投递才会被声誉上下文消费。暂停窗口内由播种线程自己推一次，
+        // 后面的 bounties.open 才不会撞上"声誉账户不存在"（DemoDataSeederIT 就是在这一步暴露的）。
+        relay.relayOnce();
 
         long courseId = courses.create(teacher, new CreateCourseCommand("CS2001", "数据结构", "2026-秋"));
         courses.join(ta, courseId);
