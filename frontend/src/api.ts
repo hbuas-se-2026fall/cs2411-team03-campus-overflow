@@ -23,7 +23,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   'QA-3001': '只有提问者或课程教师/助教可以执行此操作',
   'QA-403': '没有权限编辑/删除该内容',
   'QA-404': '内容不存在或已被删除',
+  'ID-1002': '昵称需 2–20 字，且不能包含 @ 或空格',
+  'ID-1003': '邮箱格式不正确或过长',
   'ID-2001': '工号、昵称或邮箱已被使用',
+  'ID-2002': '该昵称已被占用，换一个试试',
+  'ID-2003': '该邮箱已被占用',
+  'ID-3002': '只能修改本人的资料',
   'ID-1004': '密码需 8–64 位，且同时包含字母和数字',
   'ID-3001': '仅管理员可执行该操作',
   'ID-4001': '用户不存在',
@@ -76,6 +81,8 @@ export const api = {
   login: (username: string, password: string) => request<Me>('POST', '/v1/auth/login', { username, password }),
   logout: () => request<void>('POST', '/v1/auth/logout'),
   me: () => get<Me>('/v1/auth/me'),
+  updateMe: (body: { displayName: string; email: string; college?: string; className?: string }) =>
+    request<Me>('PATCH', '/v1/auth/me', body),
 
   questions: (page = 1, courseId?: number) =>
     get<Page<QuestionSummary>>(`/v1/questions?page=${page}${courseId ? `&courseId=${courseId}` : ''}`),
@@ -131,6 +138,10 @@ export const api = {
 
   adminUsers: (verified = false, page = 1, size = 20) =>
     get<Page<AdminUser>>(`/v1/admin/users?verified=${verified}&page=${page}&size=${size}`),
+  adminUsersAll: (page = 1, size = 20) =>
+    get<Page<AdminUser>>(`/v1/admin/users/all?page=${page}&size=${size}`),
+  disableUser: (id: number) =>
+    request<{ sessionsTerminated: number }>('POST', `/v1/admin/users/${id}/disable`, {}),
   verifyUser: (id: number) => request<void>('POST', `/v1/admin/users/${id}/verify`, {}),
   createStaff: (body: {
     username: string; displayName: string; email: string; password: string; role: Role; college?: string;

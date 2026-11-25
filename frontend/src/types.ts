@@ -59,5 +59,6 @@ export interface LedgerEntry {
 /** 管理员视角的用户视图，学号/工号已由后端脱敏。 */
 export interface AdminUser {
   id: number; maskedUsername: string; displayName: string; role: Role; verified: boolean;
+  status: 'ACTIVE' | 'DISABLED';
   college?: string; className?: string; createdAt: string;
 }

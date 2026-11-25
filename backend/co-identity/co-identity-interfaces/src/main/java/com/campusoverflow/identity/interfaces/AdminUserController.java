@@ -46,11 +46,25 @@ public class AdminUserController {
         return admin.listByVerification(actor, verified, new PageRequest(page, size));
     }
 
+    @Operation(summary = "列出全部用户（含已禁用，供账号管理页使用）")
+    @GetMapping("/all")
+    public PageResult<UserView> listAll(@Parameter(hidden = true) Actor actor,
+                                        @RequestParam(defaultValue = "1") int page,
+                                        @RequestParam(defaultValue = "20") int size) {
+        return admin.listAll(actor, new PageRequest(page, size));
+    }
+
     @Operation(summary = "完成校园身份认证")
     @PostMapping("/{userId}/verify")
     public ResponseEntity<Void> verify(@Parameter(hidden = true) Actor actor, @PathVariable long userId) {
         admin.verify(actor, userId);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "禁用账号并立即下线", description = "返回被终止的会话数，便于前端提示「已踢下线」")
+    @PostMapping("/{userId}/disable")
+    public Map<String, Integer> disable(@Parameter(hidden = true) Actor actor, @PathVariable long userId) {
+        return Map.of("sessionsTerminated", admin.disable(actor, userId));
     }
 
     @Operation(summary = "创建教职工账号")

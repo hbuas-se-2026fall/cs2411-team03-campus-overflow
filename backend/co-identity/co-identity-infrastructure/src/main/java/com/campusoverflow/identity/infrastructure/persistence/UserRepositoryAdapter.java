@@ -70,6 +70,15 @@ public class UserRepositoryAdapter implements UserRepository {
     }
 
     @Override
+    public PageResult<User> findAll(PageRequest page) {
+        Page<UserJpaEntity> p = jpa.findAll(
+                org.springframework.data.domain.PageRequest.of(page.page() - 1, page.size(),
+                        Sort.by(Sort.Direction.DESC, "createdAt")));
+        return new PageResult<>(p.getContent().stream().map(this::toDomain).toList(), p.getTotalElements(),
+                page.page(), page.size());
+    }
+
+    @Override
     public User save(User user) {
         UserJpaEntity e = user.id() == null
                 ? new UserJpaEntity(user.username(), user.createdAt())

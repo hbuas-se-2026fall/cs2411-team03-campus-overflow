@@ -24,5 +24,8 @@ public interface UserRepository {
 
     PageResult<User> findByVerified(boolean verified, PageRequest page);
 
+    /** 按注册时间倒序列出全部用户（含已禁用），供管理员账号管理页使用。 */
+    PageResult<User> findAll(PageRequest page);
+
     User save(User user);
 }

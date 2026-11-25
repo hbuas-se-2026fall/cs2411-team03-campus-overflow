@@ -25,14 +25,14 @@ public class User {
 
     private Long id;
     private final String username;
-    private final String displayName;
-    private final String email;
+    private String displayName;
+    private String email;
     private final String passwordHash;
     private Role role;
     private UserStatus status;
     private boolean verified;
-    private final String college;
-    private final String className;
+    private String college;
+    private String className;
     private final Instant createdAt;
     private final long version;
 
@@ -103,6 +103,25 @@ public class User {
             throw new BusinessRuleException("ID-1007", "不能禁用自己的账号");
         }
         this.status = UserStatus.DISABLED;
+    }
+
+    /**
+     * 本人修改资料：昵称、邮箱、学院、班级。
+     *
+     * <p>可改的只有这四项。学号是登录凭据、角色决定权限、认证状态是管理员核对过校园身份后的结论，
+     * 都不在自助范围内——把它们排除在外，比事后去审计「谁把自己改成了管理员」可靠得多。
+     *
+     * <p>校验规则与注册完全共用（昵称 2–20 且不含 @/空格、邮箱格式与长度），避免出现
+     * 「注册卡得严、改资料卡得松」的口子。唯一性不在这里判——那要查库，属于应用层的职责。
+     */
+    public void updateProfile(Actor actor, String displayName, String email, String college, String className) {
+        if (actor == null || !actor.is(requireId())) {
+            throw new ForbiddenException("ID-3002", "只能修改本人的资料");
+        }
+        this.displayName = checkDisplayName(displayName);
+        this.email = checkEmail(email);
+        this.college = optional(college, 50);
+        this.className = optional(className, 50);
     }
 
     public boolean canLogin() {
