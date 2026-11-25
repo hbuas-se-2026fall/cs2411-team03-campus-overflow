@@ -30,6 +30,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li>投递语义：至少一次。订阅者必须幂等（账本唯一键 / processed_event 表）；</li>
  *   <li>顺序：批内按 id 顺序投递，遇到失败即停止本批（避免后续事件越过失败事件），失败事件指数退避重试；</li>
  *   <li>超过最大重试次数即成为“死信”，由指标 co_outbox_dead_letters 暴露并告警，人工处理后可将 attempts 清零重放。</li>
+ *   <li><strong>可暂停</strong>：{@link OutboxRelayGate} 处于暂停窗口时定时轮询整周期跳过，用于启动期播种独占写入（#96）；
+ *       暂停期间的投递由调用方显式调用 {@link #relayOnce()} 推进（顺序执行，不发生并发）。</li>
  * </ul>
  */
 @Component
@@ -41,6 +43,7 @@ public class OutboxRelay {
     private final JdbcTemplate jdbc;
     private final NamedParameterJdbcTemplate named;
     private final TransactionTemplate tx;
+    private final OutboxRelayGate gate;
     private final ApplicationEventPublisher bus;
     private final ObjectMapper mapper;
     private final Clock clock;
@@ -54,12 +57,14 @@ public class OutboxRelay {
     }
 
     public OutboxRelay(JdbcTemplate jdbc, NamedParameterJdbcTemplate named, TransactionTemplate tx,
-                       ApplicationEventPublisher bus, ObjectMapper mapper, Clock clock, MeterRegistry registry,
+                       OutboxRelayGate gate, ApplicationEventPublisher bus, ObjectMapper mapper, Clock clock,
+                       MeterRegistry registry,
                        @Value("${co.outbox.batch-size:100}") int batchSize,
                        @Value("${co.outbox.max-attempts:10}") int maxAttempts) {
         this.jdbc = jdbc;
         this.named = named;
         this.tx = tx;
+        this.gate = gate;
         this.bus = bus;
         this.mapper = mapper;
         this.clock = clock;
@@ -71,8 +76,25 @@ public class OutboxRelay {
         Gauge.builder("co_outbox_dead_letters", this, r -> r.count("attempts >= " + maxAttempts)).register(registry);
     }
 
+    /** 定时轮询入口：暂停窗口内整周期跳过，把写入机会让给播种线程（#96）。 */
     @Scheduled(fixedDelayString = "${co.outbox.poll-interval-ms:500}")
     public void relay() {
+        // 启动期播种窗口内直接跳过：绝不在这个时间窗里认领/投递（否则会与播种互相等锁，#96）
+        if (gate.isPaused()) {
+            log.debug("发件箱中继处于暂停窗口，本周期跳过");
+            return;
+        }
+        relayOnce();
+    }
+
+    /**
+     * 立即推进一批（不受暂停开关约束）。
+     *
+     * <p>供暂停窗口内的调用方按需"补投"：播种线程需要在某个阶段后看到投影结果（例如开户后才能开悬赏），
+     * 就用它同步推进一次。因为调用方就是播种线程本身，播种与投递顺序执行、不会彼此并发，
+     * #96 的并发成环前提不成立。
+     */
+    public void relayOnce() {
         List<Row> batch = claim();
         for (Row row : batch) {
             if (!dispatch(row)) {
