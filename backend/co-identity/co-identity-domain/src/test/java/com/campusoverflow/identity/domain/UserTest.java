@@ -109,4 +109,26 @@ class UserTest {
         assertThat(u.college()).isNull();
         assertThat(u.className()).isNull();
     }
+
+    @Test
+    void adminDisableRevokesLoginButNotSelf() {
+        User u = newStudent();
+        u.assignId(2);
+        assertThat(u.canLogin()).isTrue();
+        u.disable(admin);
+        assertThat(u.status()).isEqualTo(UserStatus.DISABLED);
+        assertThat(u.canLogin()).as("禁用后不能再登录：踢会话之外的第二道保险").isFalse();
+
+        User self = User.reconstitute(1L, "admin01", "admin", "a@b.cn", "h", Role.ADMIN, UserStatus.ACTIVE,
+                true, null, null, NOW, 0);
+        assertThatThrownBy(() -> self.disable(admin)).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("禁用");
+    }
+
+    @Test
+    void onlyAdminCanDisable() {
+        User u = newStudent();
+        u.assignId(3);
+        assertThatThrownBy(() -> u.disable(student)).isInstanceOf(ForbiddenException.class);
+    }
 }

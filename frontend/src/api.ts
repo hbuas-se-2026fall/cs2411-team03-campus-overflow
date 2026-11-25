@@ -138,6 +138,10 @@ export const api = {
 
   adminUsers: (verified = false, page = 1, size = 20) =>
     get<Page<AdminUser>>(`/v1/admin/users?verified=${verified}&page=${page}&size=${size}`),
+  adminUsersAll: (page = 1, size = 20) =>
+    get<Page<AdminUser>>(`/v1/admin/users/all?page=${page}&size=${size}`),
+  disableUser: (id: number) =>
+    request<{ sessionsTerminated: number }>('POST', `/v1/admin/users/${id}/disable`, {}),
   verifyUser: (id: number) => request<void>('POST', `/v1/admin/users/${id}/verify`, {}),
   createStaff: (body: {
     username: string; displayName: string; email: string; password: string; role: Role; college?: string;
