@@ -1,0 +1,779 @@
+{
+  "info": {
+    "name": "CampusOverflow v1.0 · Lab4 提交物",
+    "description": "CampusOverflow 公开 API 集合，覆盖认证、问答、声誉、悬赏、搜索、通知与管理员对账。\n\n认证方式：服务端会话 Cookie（SESSION）+ CSRF 双提交 Cookie（XSRF-TOKEN → X-XSRF-TOKEN）。集合级 pre-request 脚本会自动从 Cookie Jar 读取 XSRF-TOKEN 并写入请求头，因此只需按顺序跑完「00 准备」即可。\n\n核心成功用例：`02 问题 / 发布问题`，断言 201 Created 并把返回的 id 存入 `questionId` 变量，供后续请求复用。\n\n前置条件：后端已启动（默认 http://localhost:8080），或在集合变量 `baseUrl` 中改为实际地址。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 准备",
+      "item": [
+        {
+          "name": "获取 CSRF Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 返回 CSRF token', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('csrf', body.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/csrf",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "csrf"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01 认证",
+      "item": [
+        {
+          "name": "注册学生（随机账号，可重复执行）",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const suffix = Date.now().toString().slice(-8);",
+                  "pm.collectionVariables.set('regUsername', 't' + suffix);",
+                  "pm.collectionVariables.set('regDisplay', 'u' + suffix);",
+                  "pm.collectionVariables.set('regEmail', 'u' + suffix + '@example.com');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 注册成功', () => pm.response.to.have.status(201));",
+                  "pm.test('返回用户 id', () => pm.expect(pm.response.json().id).to.be.a('number'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{regUsername}}\",\n  \"displayName\": \"{{regDisplay}}\",\n  \"email\": \"{{regEmail}}\",\n  \"password\": \"{{password}}\",\n  \"college\": \"湖北文理学院\",\n  \"className\": \"计算机2411\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "登录（保存会话 Cookie）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 登录成功', () => pm.response.to.have.status(200));",
+                  "const me = pm.response.json();",
+                  "pm.test('返回当前用户', () => pm.expect(me).to.have.property('displayName'));",
+                  "pm.collectionVariables.set('meId', me.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{regUsername}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "当前登录用户",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 返回本人资料', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "me"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "修改本人资料",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 资料已更新', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"{{regDisplay}}\",\n  \"email\": \"{{regEmail}}\",\n  \"college\": \"湖北文理学院\",\n  \"className\": \"计算机2411\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "me"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 问题",
+      "item": [
+        {
+          "name": "发布问题（Lab4 成功用例 · 201）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('响应体带 id 且为数字', () => pm.expect(pm.response.json().id).to.be.a('number'));",
+                  "pm.collectionVariables.set('questionId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": null,\n  \"title\": \"MySQL ngram 全文索引对中文短词检索不生效\",\n  \"body\": \"建表时用了 WITH PARSER ngram，但检索「数据库」只命中完整包含该词的文档，英文单词倒是正常。已确认 innodb_ft_enable_stopword=0，想请教分词粒度和最小检索长度的正确配法。\",\n  \"tags\": [\"mysql\", \"全文检索\", \"中文\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/questions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "questions"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "问题列表（分页）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 返回分页结果', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/questions?page=1&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "questions"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "问题详情",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 返回详情', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/questions/{{questionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "questions", "{{questionId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "编辑问题",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204 编辑成功', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": null,\n  \"title\": \"MySQL ngram 全文索引对中文短词检索不生效（已补充版本信息）\",\n  \"body\": \"MySQL 8.0.33，表用 WITH PARSER ngram，ngram_token_size 默认 2。检索「数据库」只命中完整包含该词的文档，英文单词正常。已确认 innodb_ft_enable_stopword=0，想请教分词粒度与最小检索长度的正确配法。\",\n  \"tags\": [\"mysql\", \"全文检索\", \"中文\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/questions/{{questionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "questions", "{{questionId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 回答与采纳",
+      "item": [
+        {
+          "name": "提交回答",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 提交成功', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('answerId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"ngram 的 token size 在初始化时固化，2 表示按两字切分；查询词少于 token size 时匹配不到，先把 ngram_token_size 调到 1 再重建索引，或在应用层对短词走 LIKE 兜底。修改 my.cnf 后需要 OPTIMIZE TABLE 重建全文索引才会生效。\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/questions/{{questionId}}/answers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "questions", "{{questionId}}", "answers"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "采纳回答",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204 采纳成功', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answerId\": {{answerId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/questions/{{questionId}}/accepted-answer",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "questions", "{{questionId}}", "accepted-answer"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "教师认证回答（需教师/助教身份）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 认证成功，或 403 当前账号无课程管理权限', () => {",
+                  "  pm.expect([204, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/answers/{{answerId}}/endorsement",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "answers", "{{answerId}}", "endorsement"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 评价",
+      "item": [
+        {
+          "name": "给回答投赞成票",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 投票成功；同一账号给自己的内容投票会被 QA-1015 拒绝（403）', () => {",
+                  "  pm.expect([200, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetType\": \"ANSWER\",\n  \"targetId\": {{answerId}},\n  \"value\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/votes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "votes"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "给问题投反对票",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 投票成功；同一账号给自己的内容投票会被 QA-1015 拒绝（403）', () => {",
+                  "  pm.expect([200, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetType\": \"QUESTION\",\n  \"targetId\": {{questionId}},\n  \"value\": -1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/votes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "votes"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "发表评论（一层回复）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('201 评论成功', () => pm.response.to.have.status(201));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetType\": \"QUESTION\",\n  \"targetId\": {{questionId}},\n  \"body\": \"同问，我们组的检索也是这样，先按最小分词长度排查。\",\n  \"parentId\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/comments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "comments"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 声誉",
+      "item": [
+        {
+          "name": "我的声誉账户",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 返回账户', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{meId}}/reputation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{meId}}", "reputation"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "我的声誉流水",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 返回流水', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{meId}}/reputation/ledger",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{meId}}", "reputation", "ledger"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "排行榜（本周）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 返回榜单', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboard?period=week&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "leaderboard"],
+              "query": [
+                { "key": "period", "value": "week" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06 悬赏",
+      "item": [
+        {
+          "name": "查看问题悬赏",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 返回悬赏详情；尚无悬赏时允许 204/404', () => {",
+                  "  pm.expect([200, 204, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/questions/{{questionId}}/bounty",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "questions", "{{questionId}}", "bounty"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "发起悬赏（需课程管理者身份）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 发起成功，或 403 当前账号无课程管理权限', () => {",
+                  "  pm.expect([201, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"points\": 50,\n  \"days\": 7\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/questions/{{questionId}}/bounty",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "questions", "{{questionId}}", "bounty"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07 搜索与通知",
+      "item": [
+        {
+          "name": "关键词搜索",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 返回搜索结果', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/search/questions?q=全文索引&page=1&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "search", "questions"],
+              "query": [
+                { "key": "q", "value": "全文索引" },
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "相关问题推荐",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 返回推荐列表', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/questions/{{questionId}}/related?limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "questions", "{{questionId}}", "related"],
+              "query": [{ "key": "limit", "value": "5" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "我的通知",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 返回通知列表', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "未读数量",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 返回未读数', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/unread-count",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "unread-count"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "08 管理员（需 ADMIN 身份）",
+      "item": [
+        {
+          "name": "全部账号",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 返回账号列表，或 403 非管理员', () => {",
+                  "  pm.expect([200, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", "all"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "声誉对账（账本 vs 账户）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 返回对账结果，或 403 非管理员', () => {",
+                  "  pm.expect([200, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/reputation/reconciliation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "reputation", "reconciliation"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// CSRF 双提交：Cookie 里的 XSRF-TOKEN 回填到请求头，写请求缺它会 403 AUTH-403-CSRF",
+          "const csrfCookie = pm.cookies.get('XSRF-TOKEN');",
+          "const csrfVar = pm.collectionVariables.get('csrf');",
+          "if (csrfCookie || csrfVar) {",
+          "  pm.request.headers.upsert({ key: 'X-XSRF-TOKEN', value: csrfCookie || csrfVar });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('响应不是 5xx', () => pm.expect(pm.response.code).to.be.below(500));"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "password", "value": "Passw0rd123" },
+    { "key": "csrf", "value": "" },
+    { "key": "regUsername", "value": "" },
+    { "key": "regDisplay", "value": "" },
+    { "key": "regEmail", "value": "" },
+    { "key": "meId", "value": "" },
+    { "key": "questionId", "value": "" },
+    { "key": "answerId", "value": "" }
+  ]
+}
