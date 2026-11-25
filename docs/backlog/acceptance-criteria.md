@@ -581,6 +581,44 @@ Feature: 发布
     Then Release Notes 含新功能、已知问题、部署步骤
 ```
 
+### PB-41 个人资料查看与修改（Could，S4 补齐）
+
+> 原 backlog 把本条标为「Won't（本期）」。Sprint 4 收尾阶段决定补做，验收口径按此执行。
+> 落点：`User.updateProfile`（领域）→ `UserProfileService`（应用）→ `PATCH /api/v1/auth/me`（接口）→ `frontend/src/pages/ProfilePage.tsx`（前端）。
+
+```gherkin
+Feature: 个人资料
+  Scenario: 查看本人资料
+    Given 我已登录
+    When 我打开资料页（GET /api/v1/auth/me）
+    Then 返回学号、昵称、邮箱、学院、班级、角色、校园认证状态与所选课程
+
+  Scenario: 修改可自助维护的四项
+    Given 我已登录
+    When 我 PATCH /api/v1/auth/me 提交新的昵称、邮箱、学院、班级
+    Then 返回 200，响应中四项为新值，再次 GET /me 读到同一份结果
+
+  Scenario: 昵称与邮箱全局唯一
+    Given 昵称「小明」已被另一个账号占用
+    When 我把自己的昵称改成「小明」
+    Then 返回 409，错误码 ID-2002；邮箱冲突对应 ID-2003
+
+  Scenario: 格式校验沿用注册规则
+    Given 我已登录
+    When 我把昵称提交为「小 明」（含空格）或把邮箱提交为 not-an-email
+    Then 返回 400，昵称错误码 ID-1002，邮箱错误码 ID-1003
+
+  Scenario: 不可自助修改的字段
+    Given 我已登录
+    When 我尝试修改学号、角色或校园认证状态
+    Then 这些字段不在可提交范围内（请求体无对应字段），三者保持原值
+
+  Scenario: 只能改自己的
+    Given 我提交的请求被识别为其他用户
+    When 服务端调用 User.updateProfile
+    Then 抛 ForbiddenException（ID-3002），不产生任何写入
+```
+
 ---
 
 ## 复核清单（QA 使用）
