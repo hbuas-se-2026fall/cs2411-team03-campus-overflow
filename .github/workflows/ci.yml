@@ -51,7 +51,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-test-reports
-          path: "**/target/*-reports/*.xml"
+          # Surefire 结果 + JaCoCo 覆盖率页面（HTML 与 XML），评审可直接查看
+          path: |
+            **/target/*-reports/*.xml
+            **/target/site/jacoco/**
+          if-no-files-found: ignore
 
   frontend:
     name: 前端构建
