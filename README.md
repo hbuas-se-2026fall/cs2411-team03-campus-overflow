@@ -4,7 +4,7 @@
 
 后端是 **Spring Boot 3 的模块化单体**，按四个限界上下文切分，跨上下文只通过 `*-api` 发布语言通信，状态变更靠**事务性发件箱**异步投递。前端是 React + TypeScript + Vite。
 
-当前版本 **v1.0.0**，Sprint 0–4 已交付。
+当前版本 **v1.0.1**，Sprint 0–4 已交付。
 
 ---
 
@@ -87,10 +87,12 @@ cd frontend && npm install && npm run dev      # http://localhost:5173
 
 ### 值得先读的设计文档
 
-- `docs/adr/`：10 条架构决策记录——**为什么**这样设计比代码本身更重要
-- `docs/ddd/`：上下文映射、事件目录、统一语言
-- `docs/backlog/`：48 个 PBI 的 Backlog、Gherkin 验收标准、用户故事地图
-- `docs/scrum/`：Sprint 0–3 的计划与回顾
+- `docs/adr/`：12 条架构决策记录——**为什么**这样设计比代码本身更重要
+- `docs/ddd/`：上下文映射、领域模型、事件目录、统一语言、聚合清单
+- `docs/backlog/`：52 个 PBI 的 Backlog、Gherkin 验收标准、用户故事地图
+- `docs/scrum/`：Sprint 0–4 的计划、回顾与燃尽图
+- `docs/reports/`：测试结果与覆盖率报告
+- `docs/final/`：答辩演示文稿
 - `docs/错误码.md`：错误码分段与 HTTP 状态映射，领域异常必须遵守
 
 ---
@@ -119,8 +121,9 @@ CI 见 `.github/workflows/ci.yml`，四个 job：后端构建与验证、前端�
 | 声誉没有变化 | 声誉是异步结算的：事件先落 `outbox_event`，由中继投递；查 `last_error` 字段 |
 | 中文搜索没结果 | 必须用 compose 里的 MySQL（已配 `ngram_token_size=2`），自建库要对照参数 |
 | 同一事件加了两次分 | 消费端必须幂等：账本唯一键 `(event_id, user_id, reason)` 或 `processed_event` 表 |
-| 通知晚 30 秒才出现红点 | 前端当前是 30 秒轮询，不是 SSE（已知问题，见 `RELEASE_NOTES.md`） |
+| 通知红点不刷新 | 已改为 SSE 推送（Sprint 4，#92），断线时回退为 30 秒轮询 |
 | 提交后 CI 红 | 先本地跑 `mvn verify` 再推；不要把红的分支合进 `main` |
+| 合并后分支残留 | 合并即删：PR 合入后立即删除源分支，远端只留 main 与在途分支 |
 
 ---
 

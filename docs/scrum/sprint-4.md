@@ -53,7 +53,7 @@ Grafana 面板随 compose 启动自动 provisioning（ADR-012），覆盖发件�
 | 贡献者（每人有领域层+应用层 PR） | 部分 | Arthur20060209、Sherpherd-W、zhaojeak 均有领域/应用层 PR；Can0401 的领域层 PR 集中在 Sprint 2（Bounty 状态机） |
 | PR/Review | 部分 | 28 个 PR 全部经 PR 合入；但早期 PR 以作者自合为主，Sprint 3 起改为非作者 1 人 Approve |
 | Issue 与看板 | 通过 | 52 个 PBI 均有 Issue 与验收标准，关联里程碑；Sprint 4 的 PBI 在创建时未填 assignee，是本 Sprint 的执行缺口 |
-| 分支规范 | **未满足** | 18 个已合并的 `feature/*`、`fix/*`、`docs/*` 分支未删除 |
+| 分支规范 | 通过（收尾时已清理） | 18 个已合并分支已在收尾时全部删除，远端只留 main 与两个在途分支 |
 | CI/CD | 通过 | 每次 PR 触发，红灯在 24 小时内修复（#95 的检查失败由 #97/#98 当日处理） |
 | Scrum 工件 | 部分 | 里程碑描述齐全、本记录与 Sprint 0–3 记录齐全；燃尽图见 `docs/scrum/burndown.md` |
 
@@ -67,14 +67,14 @@ Grafana 面板随 compose 启动自动 provisioning（ADR-012），覆盖发件�
 
 **待改进**
 
-- **分支该删没删**（18 个），是流程纪律问题，不是能力问题。
+- **分支该删没删**（18 个），是流程纪律问题，不是能力问题。已在收尾阶段全部清理。
 - Sprint 4 的 PBI 创建时没有 assignee，导致"谁在做"只能靠 PR 作者反推，与 Sprint 3 起的"开工即填 assignee"约定不一致。
 - Can0401 在 Sprint 4 无提交，团队分工在收尾阶段实际落到 3 人身上，最后一周的工作量集中度偏高。
 - 文档类交付（领域模型、Sprint 记录、燃尽图、覆盖率报告归档）拖到最后统一补，没有随 Sprint 增量产出。
 
 **行动项（遗留至项目收尾）**
 
-1. 清理全部已合并分支，并在 README 的协作约定里写明"合并即删"。
-2. `docs/reports/` 补归档覆盖率报告，CI 构件同时上传 JaCoCo HTML。
-3. 补齐领域模型与燃尽图，使 `docs/ddd/`、`docs/scrum/` 满足 9.4 清单。
+1. 清理全部已合并分支，并在 README 的协作约定里写明"合并即删"。（已完成）
+2. `docs/reports/` 补归档覆盖率报告，CI 构件同时上传 JaCoCo HTML。（已完成）
+3. 补齐领域模型与燃尽图，使 `docs/ddd/`、`docs/scrum/` 满足 9.4 清单。（已完成）
 4. 答辩材料（`docs/final/`）与演示视频由团队在第 8 周评审会前完成。
