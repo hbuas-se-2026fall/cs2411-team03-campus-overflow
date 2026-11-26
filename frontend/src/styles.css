@@ -106,3 +106,53 @@ td.pos { color: var(--accent); font-weight: 600; }
 td.neg { color: var(--danger); font-weight: 600; }
 .field { display: block; margin: 8px 0; }
 .field input { display: block; margin-top: 4px; width: 100%; max-width: 240px; }
+
+/* Sprint3 T3-11：@高亮 / 相关问题侧栏 / 通知中心 */
+.mention { color: var(--brand); background: #eaf2ff; border-radius: 4px; padding: 0 3px; font-weight: 600; }
+
+.related li { display: flex; flex-direction: column; gap: 2px; }
+.related-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.related-meta .accepted-mark { color: var(--accent); font-weight: 600; }
+.related-meta .similarity { color: var(--brand); border: 1px solid var(--line); border-radius: 10px; padding: 0 6px; }
+
+.notif-list li { display: flex; align-items: center; gap: 8px; }
+.notif .dot { width: 8px; height: 8px; border-radius: 50%; background: transparent; flex: 0 0 auto; }
+.notif .dot.on { background: var(--danger); }
+.notif-type { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 10px; padding: 0 6px; flex: 0 0 auto; }
+.notif-title { padding: 0; text-align: left; }
+.notif.read .notif-title { color: var(--muted); font-weight: 400; }
+
+/* Sprint4 #53：管理页 */
+.success { color: var(--accent); }
+.admin-page .tabs { margin: 8px 0 16px; }
+.admin-page .board { border: 1px solid var(--line); border-radius: 8px; }
+.admin-page .board th { background: #f6f8fa; font-weight: 600; font-size: 13px; }
+.admin-form { display: flex; flex-direction: column; gap: 10px; max-width: 520px; }
+.admin-form label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 14px; }
+.admin-form button { align-self: flex-start; margin-top: 6px; }
+/* Sprint4 #48：Markdown 正文与代码高亮 */
+.markdown { line-height: 1.7; word-break: break-word; }
+.markdown p { margin: 8px 0; }
+.markdown h1, .markdown h2, .markdown h3, .markdown h4 { margin: 16px 0 8px; line-height: 1.35; }
+.markdown ul, .markdown ol { margin: 8px 0; padding-left: 24px; }
+.markdown li { margin: 3px 0; }
+.markdown blockquote { margin: 10px 0; padding: 6px 12px; border-left: 3px solid var(--line); color: var(--muted); background: #fafbfc; }
+.markdown table { border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+.markdown th, .markdown td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; }
+.markdown th { background: #f6f8fa; font-weight: 600; }
+.markdown img { max-width: 100%; }
+.markdown hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
+.markdown code { font-family: Consolas, "Courier New", monospace; font-size: 13px; }
+.markdown :not(pre) > code { background: #f1f3f5; border-radius: 4px; padding: 1px 5px; color: #24292f; }
+/* 代码块底色与文字对比用于浅色主题，保证可读性；highlight.js 主题会覆盖 token 颜色 */
+.markdown pre { background: #f6f8fa; border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; overflow-x: auto; margin: 12px 0; }
+.markdown pre code { background: transparent; padding: 0; display: block; line-height: 1.55; }
+.preview-box { border: 1px dashed var(--line); border-radius: 6px; padding: 10px 14px; background: #fff; min-height: 140px; }
+.preview-box textarea { display: none; }
+
+/* 我的资料（PB-41）：只读元信息 + 可编辑表单 */
+.hint { color: var(--muted); font-size: 12px; }
+.profile-page { display: flex; flex-direction: column; gap: 18px; }
+.profile-meta { display: flex; flex-wrap: wrap; gap: 6px 20px; color: var(--muted); font-size: 14px; }
+.profile-meta b { font-weight: 600; }
+.profile-form input { font-size: 14px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }

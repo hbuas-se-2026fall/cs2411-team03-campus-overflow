@@ -1,5 +1,7 @@
 package com.campusoverflow.bootstrap.demo;
 
+import com.campusoverflow.bootstrap.outbox.OutboxRelay;
+import com.campusoverflow.bootstrap.outbox.OutboxRelayGate;
 import com.campusoverflow.identity.api.IdentityApi;
 import com.campusoverflow.identity.application.AdminUserService;
 import com.campusoverflow.identity.application.CourseService;
@@ -27,7 +29,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
- * 演示数据（仅 demo profile 生效）：一门课、6 个账号、3 个问题，覆盖提问→回答→投票→认证→采纳→评论→悬赏全链路。
+ * 演示数据（仅 demo profile 生效）：一门课、6 个账号、3 个问题，覆盖提问→回答→投票→认证→采纳→评论→悬赏→悬赏结算全链路。
+ * 通知中心因此同时出现「回答被采纳」「获得徽章」「悬赏获奖」三类通知，便于课堂演示与验收。
  * 课堂演示与验收时可直接登录查看效果；所有账号密码均为 {@value #PASSWORD}。
  */
 @Component
@@ -46,10 +49,13 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final VoteService votes;
     private final CommentService comments;
     private final BountyService bounties;
+    private final OutboxRelayGate relayGate;
+    private final OutboxRelay relay;
 
     public DemoDataSeeder(IdentityApi identity, UserRegistrationService registration, AdminUserService admins,
                           CourseService courses, QuestionCommandService questions, AnswerCommandService answers,
-                          VoteService votes, CommentService comments, BountyService bounties) {
+                          VoteService votes, CommentService comments, BountyService bounties,
+                          OutboxRelayGate relayGate, OutboxRelay relay) {
         this.identity = identity;
         this.registration = registration;
         this.admins = admins;
@@ -59,6 +65,8 @@ public class DemoDataSeeder implements ApplicationRunner {
         this.votes = votes;
         this.comments = comments;
         this.bounties = bounties;
+        this.relayGate = relayGate;
+        this.relay = relay;
     }
 
     @Override
@@ -67,6 +75,13 @@ public class DemoDataSeeder implements ApplicationRunner {
             log.info("演示数据已存在，跳过初始化");
             return;
         }
+        // 播种期间暂停发件箱中继（#96）：两者同时写 outbox_event / 通知 / 声誉表会互相等锁，
+        // 偶发死锁会把播种事务当牺牲品回滚，表现为"后端启动即退出"。
+        // 播完立刻恢复，期间产生的事件在恢复后由中继按 id 顺序正常投递。
+        relayGate.runPaused(this::seed);
+    }
+
+    private void seed() {
         Actor system = new Actor(0L, "system", Role.ADMIN); // 引导用虚拟主体，仅用于创建第一个管理员
 
         long adminId = admins.createStaff(system, new CreateStaffCommand("admin01", "系统管理员",
@@ -90,6 +105,9 @@ public class DemoDataSeeder implements ApplicationRunner {
         Actor hong = new Actor(hongId, "小红", Role.STUDENT);
         Actor gang = new Actor(gangId, "小刚", Role.STUDENT);
         List.of(mingId, hongId, gangId).forEach(id -> admins.verify(admin, id));
+        // 开户事件（UserRegistered）要靠中继投递才会被声誉上下文消费。暂停窗口内由播种线程自己推一次，
+        // 后面的 bounties.open 才不会撞上"声誉账户不存在"（DemoDataSeederIT 就是在这一步暴露的）。
+        relay.relayOnce();
 
         long courseId = courses.create(teacher, new CreateCourseCommand("CS2001", "数据结构", "2026-秋"));
         courses.join(ta, courseId);
@@ -130,6 +148,13 @@ public class DemoDataSeeder implements ApplicationRunner {
                 但是抛异常后数据并没有回滚。换成从另一个 Bean 调用 `b()` 就正常了，这是为什么？
                 """, List.of("java", "spring-boot", "事务")));
         bounties.open(teacher, q2, 50, 7);
+        long a2 = answers.submit(hong, q2, """
+                因为 `@Transactional` 依赖 AOP 代理：同类内部调用 `b()` 走的是 `this`，不经过代理，
+                事务拦截器根本没有机会介入。把 `b()` 拆到另一个 Bean、注入自身代理，
+                或者用 `TransactionTemplate` 显式控制事务边界，三种做法都能解决。
+                """);
+        votes.cast(ming, TargetType.ANSWER, a2, 1);
+        answers.accept(gang, q2, a2); // 采纳后悬赏 50 分自动结算 → 小红收到「悬赏获奖」通知
 
         questions.post(hong, new PostQuestionCommand(courseId, "MySQL 的 ngram 全文索引是如何支持中文检索的？",
                 """

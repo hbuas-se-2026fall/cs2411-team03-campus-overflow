@@ -36,13 +36,16 @@ public record SearchQuery(String keyword, Long courseId, String tag, SearchSort 
         page = page == null ? new PageRequest(1, 20) : page;
     }
 
+    /** 切分后的词项：按空白切分、丢弃空串、去重保序、最多 5 个。keyword 为 null 时返回空列表。 */
     public List<String> terms() {
-        // TODO(S3)：实现 SearchQuery.terms——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：SearchQuery.terms 尚未实现");
+        return keyword == null ? List.of() : terms(keyword);
     }
 
     private static List<String> terms(String keyword) {
-        // TODO(S3)：实现 SearchQuery.terms——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：SearchQuery.terms 尚未实现");
+        return Arrays.stream(keyword.split("\\s+"))
+                .filter(term -> !term.isEmpty())
+                .distinct()
+                .limit(MAX_TERMS)
+                .toList();
     }
 }

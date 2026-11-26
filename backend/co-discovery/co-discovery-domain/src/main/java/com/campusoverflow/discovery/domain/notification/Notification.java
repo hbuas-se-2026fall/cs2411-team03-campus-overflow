@@ -1,11 +1,15 @@
 package com.campusoverflow.discovery.domain.notification;
 
+import com.campusoverflow.shared.domain.BusinessRuleException;
 import com.campusoverflow.shared.domain.ForbiddenException;
 import java.time.Instant;
 import java.util.Objects;
 
 /** 站内通知。(sourceEventId, recipientId) 唯一，事件重复投递不会产生重复通知。 */
 public class Notification {
+
+    /** 标题上限：超出部分截断，避免把整段问题描述塞进通知列表。 */
+    private static final int MAX_TITLE_LENGTH = 200;
 
     private Long id;
     private final long recipientId;
@@ -28,10 +32,18 @@ public class Notification {
         this.createdAt = createdAt;
     }
 
+    /** 新通知一律为未读；标题不能为空，超过 200 个字符按码点截断。 */
     public static Notification create(long recipientId, NotificationType type, String title, String link,
                                       String sourceEventId, Instant now) {
-        // TODO(S3)：实现 Notification.create——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：Notification.create 尚未实现");
+        if (title == null || title.isBlank()) {
+            throw new BusinessRuleException("DIS-1003", "通知标题不能为空");
+        }
+        String normalized = title.strip();
+        if (normalized.codePointCount(0, normalized.length()) > MAX_TITLE_LENGTH) {
+            normalized = normalized.substring(0, normalized.offsetByCodePoints(0, MAX_TITLE_LENGTH));
+        }
+        return new Notification(null, recipientId, type, normalized, link, sourceEventId, false,
+                now == null ? Instant.now() : now);
     }
 
     public static Notification reconstitute(Long id, long recipientId, NotificationType type, String title,
@@ -39,9 +51,12 @@ public class Notification {
         return new Notification(id, recipientId, type, title, link, sourceEventId, read, createdAt);
     }
 
+    /** 只有收件人本人可以标记已读（否则 403 DIS-3001）；重复标记幂等。 */
     public void markRead(long actorId) {
-        // TODO(S3)：实现 Notification.markRead——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：Notification.markRead 尚未实现");
+        if (actorId != recipientId) {
+            throw new ForbiddenException("DIS-3001", "只能标记自己的通知为已读");
+        }
+        this.read = true;
     }
 
     public void assignId(long id) {

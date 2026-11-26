@@ -73,4 +73,62 @@ class UserTest {
         assertThatThrownBy(() -> PasswordPolicy.validate("onlyletters")).isInstanceOf(BusinessRuleException.class);
         PasswordPolicy.validate("Passw0rd!");
     }
+
+    @Test
+    void profileUpdateChangesOnlyTheSelfServiceFields() {
+        User u = newStudent();
+        u.assignId(2);
+        u.updateProfile(student, "小明同学", "New@Campus.edu", " 计算机工程学院 ", "计科2302");
+        assertThat(u.displayName()).isEqualTo("小明同学");
+        assertThat(u.email()).isEqualTo("new@campus.edu");
+        assertThat(u.className()).isEqualTo("计科2302");
+        assertThat(u.username()).as("学号是登录凭据，不能自助改").isEqualTo("2023001217");
+        assertThat(u.role()).isEqualTo(Role.STUDENT);
+        assertThat(u.verified()).as("认证结论归管理员，不随改资料变化").isFalse();
+    }
+
+    @Test
+    void profileUpdateRequiresBeingTheOwner() {
+        User u = newStudent();
+        u.assignId(2);
+        Actor someoneElse = new Actor(9, "other", Role.ADMIN);
+        assertThatThrownBy(() -> u.updateProfile(someoneElse, "小明同学", "a@b.cn", null, null))
+                .isInstanceOf(ForbiddenException.class);
+    }
+
+    @Test
+    void profileUpdateReusesRegistrationRules() {
+        User u = newStudent();
+        u.assignId(2);
+        assertThatThrownBy(() -> u.updateProfile(student, "小 明", "a@b.cn", null, null))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> u.updateProfile(student, "小明同学", "not-an-email", null, null))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("邮箱");
+        // 空白学院/班级按「未填」处理，不落空字符串
+        u.updateProfile(student, "小明同学", "a@b.cn", "   ", "");
+        assertThat(u.college()).isNull();
+        assertThat(u.className()).isNull();
+    }
+
+    @Test
+    void adminDisableRevokesLoginButNotSelf() {
+        User u = newStudent();
+        u.assignId(2);
+        assertThat(u.canLogin()).isTrue();
+        u.disable(admin);
+        assertThat(u.status()).isEqualTo(UserStatus.DISABLED);
+        assertThat(u.canLogin()).as("禁用后不能再登录：踢会话之外的第二道保险").isFalse();
+
+        User self = User.reconstitute(1L, "admin01", "admin", "a@b.cn", "h", Role.ADMIN, UserStatus.ACTIVE,
+                true, null, null, NOW, 0);
+        assertThatThrownBy(() -> self.disable(admin)).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("禁用");
+    }
+
+    @Test
+    void onlyAdminCanDisable() {
+        User u = newStudent();
+        u.assignId(3);
+        assertThatThrownBy(() -> u.disable(student)).isInstanceOf(ForbiddenException.class);
+    }
 }

@@ -4,6 +4,8 @@ import com.campusoverflow.identity.application.AuthenticationAuditService;
 import com.campusoverflow.identity.application.LoginThrottle;
 import com.campusoverflow.identity.application.MeView;
 import com.campusoverflow.identity.application.RegisterUserCommand;
+import com.campusoverflow.identity.application.UpdateProfileCommand;
+import com.campusoverflow.identity.application.UserProfileService;
 import com.campusoverflow.identity.application.UserQueryService;
 import com.campusoverflow.identity.application.UserRegistrationService;
 import com.campusoverflow.shared.security.Actor;
@@ -30,6 +32,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -46,17 +49,20 @@ public class AuthController {
 
     private final UserRegistrationService registration;
     private final UserQueryService userQuery;
+    private final UserProfileService profile;
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository securityContextRepository;
     private final LoginThrottle throttle;
     private final AuthenticationAuditService authAudit;
 
     public AuthController(UserRegistrationService registration, UserQueryService userQuery,
+                          UserProfileService profile,
                           AuthenticationManager authenticationManager,
                           SecurityContextRepository securityContextRepository, LoginThrottle throttle,
                           AuthenticationAuditService authAudit) {
         this.registration = registration;
         this.userQuery = userQuery;
+        this.profile = profile;
         this.authenticationManager = authenticationManager;
         this.securityContextRepository = securityContextRepository;
         this.throttle = throttle;
@@ -113,6 +119,21 @@ public class AuthController {
     @GetMapping("/me")
     public MeView me(@Parameter(hidden = true) Actor actor) {
         return userQuery.me(actor.userId());
+    }
+
+    @Operation(summary = "修改本人资料（昵称、邮箱、学院、班级）")
+    @PatchMapping("/me")
+    public MeView updateMe(@Valid @RequestBody UpdateProfileRequest req,
+                           @Parameter(hidden = true) Actor actor) {
+        return profile.update(actor, new UpdateProfileCommand(req.displayName(), req.email(),
+                req.college(), req.className()));
+    }
+
+    public record UpdateProfileRequest(
+            @NotBlank @Size(min = 2, max = 20) String displayName,
+            @NotBlank @Size(max = 100) String email,
+            @Size(max = 50) String college,
+            @Size(max = 50) String className) {
     }
 
     public record RegisterRequest(

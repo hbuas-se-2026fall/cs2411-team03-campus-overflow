@@ -1,6 +1,6 @@
 import type {
-  Bounty, LeaderboardEntry, LedgerEntry, Me, Notification, Page, QuestionDetail, QuestionSummary,
-  ReputationProfile, SearchResult,
+  AdminUser, Bounty, LeaderboardEntry, LedgerEntry, Me, Notification, Page, QuestionDetail, QuestionSummary,
+  RelatedQuestion, ReputationProfile, Role, SearchResult,
 } from './types';
 
 /** 后端以 RFC 9457 Problem Details 返回错误，这里统一转成带业务码的异常。 */
@@ -23,6 +23,15 @@ const ERROR_MESSAGES: Record<string, string> = {
   'QA-3001': '只有提问者或课程教师/助教可以执行此操作',
   'QA-403': '没有权限编辑/删除该内容',
   'QA-404': '内容不存在或已被删除',
+  'ID-1002': '昵称需 2–20 字，且不能包含 @ 或空格',
+  'ID-1003': '邮箱格式不正确或过长',
+  'ID-2001': '工号、昵称或邮箱已被使用',
+  'ID-2002': '该昵称已被占用，换一个试试',
+  'ID-2003': '该邮箱已被占用',
+  'ID-3002': '只能修改本人的资料',
+  'ID-1004': '密码需 8–64 位，且同时包含字母和数字',
+  'ID-3001': '仅管理员可执行该操作',
+  'ID-4001': '用户不存在',
   'SYS-409-CONCURRENT': '内容已被他人修改，请刷新后重试',
   'SYS-409-DUPLICATE': '检测到重复提交，请勿重复操作',
   'SYS-000': '服务暂时不可用，请稍后再试',
@@ -72,6 +81,8 @@ export const api = {
   login: (username: string, password: string) => request<Me>('POST', '/v1/auth/login', { username, password }),
   logout: () => request<void>('POST', '/v1/auth/logout'),
   me: () => get<Me>('/v1/auth/me'),
+  updateMe: (body: { displayName: string; email: string; college?: string; className?: string }) =>
+    request<Me>('PATCH', '/v1/auth/me', body),
 
   questions: (page = 1, courseId?: number) =>
     get<Page<QuestionSummary>>(`/v1/questions?page=${page}${courseId ? `&courseId=${courseId}` : ''}`),
@@ -93,15 +104,21 @@ export const api = {
   comment: (targetType: 'QUESTION' | 'ANSWER', targetId: number, body: string, parentId?: number) =>
     request<{ id: number }>('POST', '/v1/comments', { targetType, targetId, body, parentId }),
 
-  search: (q: string, params: { tag?: string; sort?: string; unanswered?: boolean; page?: number } = {}) => {
+  search: (q: string, params: {
+    courseId?: number; tag?: string; sort?: string; unanswered?: boolean; bounty?: boolean;
+    page?: number; size?: number;
+  } = {}) => {
     const search = new URLSearchParams({ q, page: String(params.page ?? 1) });
+    if (params.courseId) search.set('courseId', String(params.courseId));
     if (params.tag) search.set('tag', params.tag);
     if (params.sort) search.set('sort', params.sort);
     if (params.unanswered) search.set('unanswered', 'true');
+    if (params.bounty) search.set('bounty', 'true');
+    if (params.size) search.set('size', String(params.size));
     return get<Page<SearchResult>>(`/v1/search/questions?${search}`);
   },
-  related: (questionId: number) =>
-    get<{ id: number; title: string; answerCount: number; accepted: boolean }[]>(`/v1/questions/${questionId}/related`),
+  related: (questionId: number, limit = 5) =>
+    get<RelatedQuestion[]>(`/v1/questions/${questionId}/related?limit=${limit}`),
   popularTags: () => get<{ name: string; questionCount: number }[]>('/v1/tags/popular?limit=15'),
 
   leaderboard: (period: string) => get<LeaderboardEntry[]>(`/v1/leaderboard?period=${period}`),
@@ -113,7 +130,21 @@ export const api = {
   bountyLatest: (questionId: number) =>
     get<Bounty | undefined>(`/v1/questions/${questionId}/bounty`),
 
-  notifications: () => get<Page<Notification>>('/v1/notifications'),
+  notifications: (page = 1, size = 20) =>
+    get<Page<Notification>>(`/v1/notifications?page=${page}&size=${size}`),
   unreadCount: () => get<{ count: number }>('/v1/notifications/unread-count'),
+  markRead: (id: number) => request<void>('POST', `/v1/notifications/${id}/read`, {}),
   readAll: () => request<{ updated: number }>('POST', '/v1/notifications/read-all', {}),
+
+  adminUsers: (verified = false, page = 1, size = 20) =>
+    get<Page<AdminUser>>(`/v1/admin/users?verified=${verified}&page=${page}&size=${size}`),
+  adminUsersAll: (page = 1, size = 20) =>
+    get<Page<AdminUser>>(`/v1/admin/users/all?page=${page}&size=${size}`),
+  disableUser: (id: number) =>
+    request<{ sessionsTerminated: number }>('POST', `/v1/admin/users/${id}/disable`, {}),
+  verifyUser: (id: number) => request<void>('POST', `/v1/admin/users/${id}/verify`, {}),
+  createStaff: (body: {
+    username: string; displayName: string; email: string; password: string; role: Role; college?: string;
+  }) => request<{ id: number }>('POST', '/v1/admin/users', body),
+  changeRole: (id: number, role: Role) => request<void>('PUT', `/v1/admin/users/${id}/role`, { role }),
 };

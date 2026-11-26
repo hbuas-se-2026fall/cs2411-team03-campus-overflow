@@ -8,13 +8,8 @@ on:
   pull_request:
     branches: [main, develop]
 
-env:
-  # 每个 Sprint 计划会后由质量负责人（E）更新（逗号分隔的模块路径）
-  # S0: co-shared-kernel,co-identity/co-identity-domain
-  # S1: 追加 co-qa/co-qa-domain,co-qa/co-qa-application
-  # S2: 追加 co-reputation/co-reputation-domain,co-reputation/co-reputation-application
-  # S3: 删除本变量，恢复全量 mvn test / verify
-  SPRINT_MODULES: co-shared-kernel,co-identity/co-identity-domain,co-qa/co-qa-domain,co-qa/co-qa-application,co-reputation/co-reputation-domain,co-reputation/co-reputation-application
+# Sprint 3 起不再按 Sprint 范围缩小测试集合（ADR-009：门禁转为全量阻断），
+# 原先的 SPRINT_MODULES 变量已删除，单元测试与覆盖率阶段恢复全量执行。
 
 jobs:
   backend:
@@ -34,23 +29,22 @@ jobs:
       - name: 编译
         run: mvn -B -f backend/pom.xml clean compile
 
-      # 阶段 2：单元测试（Sprint 范围，领域层 + 应用层，毫秒级，无外部依赖）
-      - name: 单元测试（Sprint 范围）
-        run: mvn -B -f backend/pom.xml test -pl "$SPRINT_MODULES" -am
+      # 阶段 2：单元测试（S3 起全量：领域层 + 应用层，毫秒级，无外部依赖）
+      - name: 单元测试（全量）
+        run: mvn -B -f backend/pom.xml test
 
       # 阶段 3：架构适应度函数（ArchUnit：FF-1~FF-6，始终全量）
       # -am 构建兄弟模块依赖；failIfNoSpecifiedTests=false 允许依赖模块无 ArchitectureTest
       - name: 架构约束检查
         run: mvn -B -f backend/pom.xml test -pl co-bootstrap -am -Dtest=ArchitectureTest -DfailIfNoTests=false -Dsurefire.failIfNoSpecifiedTests=false
 
-      # 阶段 4：领域层覆盖率门禁（Sprint 范围，低于阈值直接失败）
-      - name: 覆盖率门禁（Sprint 范围）
-        run: mvn -B -f backend/pom.xml verify -DskipITs -Djacoco.skip=false -pl "$SPRINT_MODULES" -am
+      # 阶段 4：领域层覆盖率门禁（S3 起全量，低于 0.70 直接失败）
+      - name: 覆盖率门禁（全量）
+        run: mvn -B -f backend/pom.xml verify -DskipITs -Djacoco.skip=false
 
-      # 阶段 5：集成测试（Testcontainers 拉起真实 MySQL + Redis；S3 前允许失败）
+      # 阶段 5：集成测试（Testcontainers 拉起真实 MySQL + Redis，S3 起为硬门禁）
       - name: 集成测试
         run: mvn -B -f backend/pom.xml verify -Dsurefire.skip=true
-        continue-on-error: true   # S3 移除此行，集成测试成为硬门禁
 
       - name: 归档测试报告
         if: always()
@@ -88,3 +82,57 @@ jobs:
         run: docker build -f deploy/backend.Dockerfile -t campus-overflow-backend:${{ github.sha }} .
       - name: 构建前端镜像
         run: docker build -f deploy/frontend.Dockerfile -t campus-overflow-web:${{ github.sha }} .
+
+  # Sprint 4 / PB-46：把"一键部署可用"变成可验证的门禁，而不是发布说明里的口头承诺。
+  # 只在 main 的 push 上跑（PR 阶段由 backend / frontend / images 三个 job 负责），
+  # 避免把每次 PR 都拖慢一个完整的镜像构建周期。
+  deploy:
+    name: 一键部署冒烟（compose 起全栈）
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 校验编排文件
+        run: docker compose -f deploy/docker-compose.yml config > /dev/null
+
+      - name: 一键部署（含演示数据 profile）
+        run: docker compose -f deploy/docker-compose.yml up -d --build
+
+      - name: 等待后端就绪
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/actuator/health/readiness > /dev/null 2>&1; then
+              echo "backend readiness OK after $((i*5))s"
+              curl -fsS http://localhost:8080/actuator/health/readiness
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "backend 探活 60 次仍未就绪"
+          exit 1
+
+      - name: 探活前端与演示数据
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /dev/null -w '%{http_code}' http://localhost/)
+          echo "web HTTP $code"
+          test "$code" = "200"
+          count=$(curl -fsS 'http://localhost:8080/api/v1/questions?page=0&size=20' \
+            | python3 -c 'import sys,json; d=json.load(sys.stdin); print(len(d.get("content", d) if isinstance(d, dict) else d))')
+          echo "questions = $count"
+          test "$count" -ge 3
+
+      - name: 服务状态
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml ps
+
+      - name: 失败时导出容器日志
+        if: failure()
+        run: docker compose -f deploy/docker-compose.yml logs --no-color --tail=300
+
+      - name: 清理
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml down -v

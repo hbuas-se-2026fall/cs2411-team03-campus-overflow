@@ -3,6 +3,7 @@
 > 需求建模工作坊产出 · 维护者：PO（zhaojeak）
 > 结构：横轴 = 用户活动（Backbone 叙事流）；纵轴 = 发布批次（S0 → S4），越靠上优先级越高（MVP）。
 > 卡片 = PBI 编号 + 用户故事；*斜体* 为 Should/Could，加粗为 Must。
+> 图形版：[story-map.png](story-map.png)（提交物用图，内容与本表一致）
 
 ## 用户活动（Backbone）
 

@@ -15,6 +15,7 @@ import com.campusoverflow.shared.page.PageRequest;
 import com.campusoverflow.shared.page.PageResult;
 import com.campusoverflow.shared.security.Actor;
 import com.campusoverflow.shared.security.Role;
+import com.campusoverflow.shared.security.SessionTerminator;
 import com.campusoverflow.shared.util.Masking;
 import java.time.Clock;
 import org.springframework.stereotype.Service;
@@ -28,14 +29,16 @@ public class AdminUserService {
     private final PasswordHasher hasher;
     private final IntegrationEventPublisher events;
     private final AuditTrail audit;
+    private final SessionTerminator sessions;
     private final Clock clock;
 
     public AdminUserService(UserRepository users, PasswordHasher hasher, IntegrationEventPublisher events,
-                            AuditTrail audit, Clock clock) {
+                            AuditTrail audit, SessionTerminator sessions, Clock clock) {
         this.users = users;
         this.hasher = hasher;
         this.events = events;
         this.audit = audit;
+        this.sessions = sessions;
         this.clock = clock;
     }
 
@@ -43,6 +46,13 @@ public class AdminUserService {
     public PageResult<UserView> listByVerification(Actor actor, boolean verified, PageRequest page) {
         requireAdmin(actor);
         return users.findByVerified(verified, page).map(AdminUserService::toView);
+    }
+
+    /** 账号管理页：不区分认证状态，含已禁用账号。 */
+    @Transactional(readOnly = true)
+    public PageResult<UserView> listAll(Actor actor, PageRequest page) {
+        requireAdmin(actor);
+        return users.findAll(page).map(AdminUserService::toView);
     }
 
     @Transactional
@@ -79,6 +89,26 @@ public class AdminUserService {
         audit.record("ROLE_CHANGED", actor.userId(), "USER", String.valueOf(userId), old + " -> " + role);
     }
 
+    /**
+     * 禁用账号并立即下线。
+     *
+     * <p>两步缺一不可：状态落库让后续登录被 {@code canLogin} 拒绝，删会话让已经登录的浏览器
+     * 下一次请求就掉线。只做前者等于「禁用要等会话自然过期」，只做后者等于「刷新后又能登进来」。
+     *
+     * @return 被终止的会话数，用于前端提示与审计
+     */
+    @Transactional
+    public int disable(Actor actor, long userId) {
+        User user = load(userId);
+        String username = user.username();
+        user.disable(actor);   // 领域层再校验一次：仅管理员、不能禁用自己（ID-1007）
+        users.save(user);
+        int terminated = sessions.terminateAll(username);
+        audit.record("USER_DISABLED", actor.userId(), "USER", String.valueOf(userId),
+                "sessions_terminated=" + terminated);
+        return terminated;
+    }
+
     private User load(long userId) {
         return users.findById(userId).orElseThrow(() -> new NotFoundException("ID-4001", "用户不存在"));
     }
@@ -91,6 +121,6 @@ public class AdminUserService {
 
     static UserView toView(User u) {
         return new UserView(u.id(), Masking.account(u.username()), u.displayName(), u.role(), u.verified(),
-                u.college(), u.className(), u.createdAt());
+                u.status(), u.college(), u.className(), u.createdAt());
     }
 }

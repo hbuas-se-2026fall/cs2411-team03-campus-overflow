@@ -31,8 +31,15 @@ export interface QuestionDetail {
 }
 
 export interface SearchResult extends QuestionSummary { bountyOpen: boolean }
+
+export interface RelatedQuestion {
+  id: number; title: string; answerCount: number; accepted: boolean; similarity: number;
+}
+
 export interface LeaderboardEntry { rank: number; userId: number; displayName: string; verified: boolean; score: number }
-export interface Notification { id: number; type: string; title: string; link: string; read: boolean; createdAt: string }
+export interface Notification {
+  id: number; type: string; title: string; link: string | null; read: boolean; createdAt: string;
+}
 export interface ReputationProfile {
   userId: number; displayName: string; reputation: number; availablePoints?: number; frozenPoints?: number;
   badges: { code: string; name: string; description: string; awardedAt: string }[];
@@ -47,4 +54,11 @@ export interface Bounty {
 export interface LedgerEntry {
   id: number; reason: string; reasonLabel: string; delta: number;
   refType: string; refId: number; createdAt: string;
+}
+
+/** 管理员视角的用户视图，学号/工号已由后端脱敏。 */
+export interface AdminUser {
+  id: number; maskedUsername: string; displayName: string; role: Role; verified: boolean;
+  status: 'ACTIVE' | 'DISABLED';
+  college?: string; className?: string; createdAt: string;
 }
